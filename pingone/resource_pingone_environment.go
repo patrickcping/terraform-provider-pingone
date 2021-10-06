@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -19,10 +20,14 @@ func resourceEnvironment() *schema.Resource {
 		UpdateContext: resourceEnvironmentUpdate,
 		DeleteContext: resourceEnvironmentDelete,
 		Importer: &schema.ResourceImporter{
-			StateContext: schema.ImportStatePassthroughContext,
+			StateContext: resourceEnvironmentImport,
 		},
 
 		Schema: map[string]*schema.Schema{
+			"environment_id": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 			"name": {
 				Type:     schema.TypeString,
 				Required: true,
@@ -54,26 +59,17 @@ func resourceEnvironment() *schema.Resource {
 				Elem:     billOfMaterialsProductElem,
 				Set:      HashByMapKey("type"),
 			},
-			"default_population": {
-				Type:     schema.TypeSet,
+			"default_population_id": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
+			"default_population_name": {
+				Type:     schema.TypeString,
 				Required: true,
-				MaxItems: 1,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"id": {
-							Type:     schema.TypeString,
-							Computed: true,
-						},
-						"name": {
-							Type:     schema.TypeString,
-							Computed: true,
-						},
-						"description": {
-							Type:     schema.TypeString,
-							Optional: true,
-						},
-					},
-				},
+			},
+			"default_population_description": {
+				Type:     schema.TypeString,
+				Optional: true,
 			},
 		},
 	}
@@ -143,8 +139,6 @@ func resourceEnvironmentCreate(ctx context.Context, d *schema.ResourceData, meta
 		return diags
 	}
 
-	d.SetId(resp.GetId())
-
 	if products, ok := d.GetOk("product"); ok {
 		productBOMItems := buildBOMProductsCreateRequest(products.(*schema.Set).List())
 
@@ -164,8 +158,8 @@ func resourceEnvironmentCreate(ctx context.Context, d *schema.ResourceData, meta
 	}
 
 	//Have to create a default population because of the destroy restriction on the population resource
-	popName := "Default"
-	popDescription := d.Get("default_population").(*schema.Set).List()[0].(map[string]interface{})["description"].(string)
+	popName := d.Get("default_population_name").(string)
+	popDescription := d.Get("default_population_description").(string)
 
 	log.Printf("[INFO] Creating PingOne Default Population: name %s", popName)
 
@@ -173,7 +167,7 @@ func resourceEnvironmentCreate(ctx context.Context, d *schema.ResourceData, meta
 	population.SetName(popName)
 	population.SetDescription(popDescription)
 
-	_, popR, popErr := api_client.ManagementAPIsPopulationsApi.CreatePopulation(context.Background(), resp.GetId()).Population(population).Execute()
+	popResp, popR, popErr := api_client.ManagementAPIsPopulationsApi.CreatePopulation(context.Background(), resp.GetId()).Population(population).Execute()
 	if (err != nil) && (r.StatusCode != 201) {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -184,6 +178,8 @@ func resourceEnvironmentCreate(ctx context.Context, d *schema.ResourceData, meta
 		return diags
 	}
 
+	d.SetId(fmt.Sprintf("%s/%s", resp.GetId(), popResp.GetId()))
+
 	return resourceEnvironmentRead(ctx, d, meta)
 }
 
@@ -191,7 +187,8 @@ func resourceEnvironmentRead(ctx context.Context, d *schema.ResourceData, meta i
 	api_client := meta.(*pingone.APIClient)
 	var diags diag.Diagnostics
 
-	envID := d.Id()
+	attributes := strings.SplitN(d.Id(), "/", 2)
+	envID, populationID := attributes[0], attributes[1]
 
 	resp, r, err := api_client.ManagementAPIsEnvironmentsApi.ReadOneEnvironment(context.Background(), envID).Execute()
 	if err != nil {
@@ -204,6 +201,7 @@ func resourceEnvironmentRead(ctx context.Context, d *schema.ResourceData, meta i
 		return diags
 	}
 
+	d.Set("environment_id", resp.GetId())
 	d.Set("name", resp.GetName())
 	d.Set("description", resp.GetDescription())
 	d.Set("type", resp.GetType())
@@ -225,25 +223,20 @@ func resourceEnvironmentRead(ctx context.Context, d *schema.ResourceData, meta i
 	log.Printf("products: %v\n", productBOMItems)
 	d.Set("product", productBOMItems)
 
-	limit := int32(1) // int32 | Adding a paging value to limit the number of resources displayed per page (optional)
-	filter := "name eq \"Default\""
-
-	popResp, popR, popErr := api_client.ManagementAPIsPopulationsApi.ReadAllPopulations(context.Background(), envID).Limit(limit).Filter(filter).Execute()
+	popResp, popR, popErr := api_client.ManagementAPIsPopulationsApi.ReadOnePopulation(context.Background(), envID, populationID).Execute()
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsPopulationsApi.ReadAllPopulations``: %v", popErr),
+			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsPopulationsApi.ReadOnePopulation``: %v", popErr),
 			Detail:   fmt.Sprintf("Full HTTP response: %v\n", popR.Body),
 		})
 
 		return diags
 	}
 
-	populationItems := flattenPopulations(popResp.Embedded.GetPopulations())
-	if populationItems.Len() > 0 {
-		log.Printf("Populations: %v\n", populationItems)
-		d.Set("default_population", populationItems)
-	}
+	d.Set("default_population_id", popResp.GetId())
+	d.Set("default_population_name", popResp.GetName())
+	d.Set("default_population_description", popResp.GetDescription())
 
 	return diags
 }
@@ -252,7 +245,8 @@ func resourceEnvironmentUpdate(ctx context.Context, d *schema.ResourceData, meta
 	api_client := meta.(*pingone.APIClient)
 	var diags diag.Diagnostics
 
-	envID := d.Id()
+	attributes := strings.SplitN(d.Id(), "/", 2)
+	envID, populationID := attributes[0], attributes[1]
 	envName := d.Get("name").(string)
 	envDescription := d.Get("description").(string)
 	envType := d.Get("type").(string)
@@ -316,6 +310,28 @@ func resourceEnvironmentUpdate(ctx context.Context, d *schema.ResourceData, meta
 		}
 	}
 
+	if change := d.HasChange("default_population_name") || d.HasChange("default_population_description"); change {
+
+		popName := d.Get("default_population_name").(string)
+		popDescription := d.Get("default_population_description").(string)
+
+		population := *pingone.NewPopulation() // Population |  (optional)
+		population.SetName(popName)
+		population.SetDescription(popDescription)
+
+		_, r, err := api_client.ManagementAPIsPopulationsApi.UpdatePopulation(context.Background(), envID, populationID).Population(population).Execute()
+		if err != nil {
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Error,
+				Summary:  fmt.Sprintf("Error when calling `ManagementAPIsPopulationsApi.UpdatePopulation``: %v", err),
+				Detail:   fmt.Sprintf("Full HTTP response: %v\n", r.Body),
+			})
+
+			return diags
+		}
+
+	}
+
 	return resourceEnvironmentRead(ctx, d, meta)
 }
 
@@ -323,7 +339,8 @@ func resourceEnvironmentDelete(ctx context.Context, d *schema.ResourceData, meta
 	api_client := meta.(*pingone.APIClient)
 	var diags diag.Diagnostics
 
-	envID := d.Id()
+	attributes := strings.SplitN(d.Id(), "/", 2)
+	envID := attributes[0]
 
 	_, err := api_client.ManagementAPIsEnvironmentsApi.DeleteEnvironment(context.Background(), envID).Execute()
 	if err != nil {
@@ -336,6 +353,23 @@ func resourceEnvironmentDelete(ctx context.Context, d *schema.ResourceData, meta
 	}
 
 	return nil
+}
+
+func resourceEnvironmentImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+	attributes := strings.SplitN(d.Id(), "/", 2)
+
+	if len(attributes) != 2 {
+		return nil, fmt.Errorf("invalid id (\"%s\") specified, should be in format \"envID/populationID\"", d.Id())
+	}
+
+	envID, populationID := attributes[0], attributes[1]
+
+	d.Set("environment_id", envID)
+	d.SetId(fmt.Sprintf("%s/%s", envID, populationID))
+
+	resourceGroupRead(ctx, d, meta)
+
+	return []*schema.ResourceData{d}, nil
 }
 
 func buildBOMProductsCreateRequest(items []interface{}) []pingone.BillOfMaterialsProducts {
@@ -413,19 +447,4 @@ func flattenBOMProductsBookmarkList(bookmarkList []pingone.BillOfMaterialsBookma
 		})
 	}
 	return schema.NewSet(HashByMapKey("name"), bookmarkItems)
-}
-
-func flattenPopulations(populationList []pingone.Population) *schema.Set {
-	populationItems := make([]interface{}, 0, 1)
-
-	for _, population := range populationList {
-
-		populationItems = append(populationItems, map[string]interface{}{
-			"id":          population.GetId(),
-			"name":        population.GetName(),
-			"description": population.GetDescription(),
-		})
-	}
-
-	return schema.NewSet(HashByMapKey("name"), populationItems)
 }

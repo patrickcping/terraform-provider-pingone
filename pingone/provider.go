@@ -40,15 +40,18 @@ func Provider() *schema.Provider {
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
-			"pingone_environment":     resourceEnvironment(),
-			"pingone_population":      resourcePopulation(),
-			"pingone_role_assignment": resourceUserRoleAssignment(),
-			"pingone_group":           resourceGroup(),
+			"pingone_environment":      resourceEnvironment(),
+			"pingone_group":            resourceGroup(),
+			"pingone_population":       resourcePopulation(),
+			"pingone_role_assignment":  resourceUserRoleAssignment(),
+			"pingone_schema_attribute": resourceSchemaAttribute(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"pingone_environment":  datasourceEnvironment(),
 			"pingone_environments": datasourceEnvironments(),
+			"pingone_group":        datasourceGroup(),
 			"pingone_role":         datasourceRole(),
+			"pingone_schema":       datasourceSchema(),
 		},
 		ConfigureContextFunc: providerConfigure,
 	}
