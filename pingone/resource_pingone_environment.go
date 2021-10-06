@@ -54,6 +54,27 @@ func resourceEnvironment() *schema.Resource {
 				Elem:     billOfMaterialsProductElem,
 				Set:      HashByMapKey("type"),
 			},
+			"default_population": {
+				Type:     schema.TypeSet,
+				Required: true,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"id": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						"name": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						"description": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -142,6 +163,27 @@ func resourceEnvironmentCreate(ctx context.Context, d *schema.ResourceData, meta
 		}
 	}
 
+	//Have to create a default population because of the destroy restriction on the population resource
+	popName := "Default"
+	popDescription := d.Get("default_population").(*schema.Set).List()[0].(map[string]interface{})["description"].(string)
+
+	log.Printf("[INFO] Creating PingOne Default Population: name %s", popName)
+
+	population := *pingone.NewPopulation() // Population |  (optional)
+	population.SetName(popName)
+	population.SetDescription(popDescription)
+
+	_, popR, popErr := api_client.ManagementAPIsPopulationsApi.CreatePopulation(context.Background(), resp.GetId()).Population(population).Execute()
+	if (err != nil) && (r.StatusCode != 201) {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsPopulationsApi.CreatePopulation``: %v", popErr),
+			Detail:   fmt.Sprintf("Full HTTP response: %v\n", popR.Body),
+		})
+
+		return diags
+	}
+
 	return resourceEnvironmentRead(ctx, d, meta)
 }
 
@@ -182,6 +224,26 @@ func resourceEnvironmentRead(ctx context.Context, d *schema.ResourceData, meta i
 	productBOMItems := flattenBOMProducts(respBOM)
 	log.Printf("products: %v\n", productBOMItems)
 	d.Set("product", productBOMItems)
+
+	limit := int32(1) // int32 | Adding a paging value to limit the number of resources displayed per page (optional)
+	filter := "name eq \"Default\""
+
+	popResp, popR, popErr := api_client.ManagementAPIsPopulationsApi.ReadAllPopulations(context.Background(), envID).Limit(limit).Filter(filter).Execute()
+	if err != nil {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsPopulationsApi.ReadAllPopulations``: %v", popErr),
+			Detail:   fmt.Sprintf("Full HTTP response: %v\n", popR.Body),
+		})
+
+		return diags
+	}
+
+	populationItems := flattenPopulations(popResp.Embedded.GetPopulations())
+	if populationItems.Len() > 0 {
+		log.Printf("Populations: %v\n", populationItems)
+		d.Set("default_population", populationItems)
+	}
 
 	return diags
 }
@@ -351,4 +413,19 @@ func flattenBOMProductsBookmarkList(bookmarkList []pingone.BillOfMaterialsBookma
 		})
 	}
 	return schema.NewSet(HashByMapKey("name"), bookmarkItems)
+}
+
+func flattenPopulations(populationList []pingone.Population) *schema.Set {
+	populationItems := make([]interface{}, 0, 1)
+
+	for _, population := range populationList {
+
+		populationItems = append(populationItems, map[string]interface{}{
+			"id":          population.GetId(),
+			"name":        population.GetName(),
+			"description": population.GetDescription(),
+		})
+	}
+
+	return schema.NewSet(HashByMapKey("name"), populationItems)
 }

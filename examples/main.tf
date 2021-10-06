@@ -31,6 +31,10 @@ resource "pingone_environment" "test" {
 
   license_id = var.p1_licenseId
 
+  default_population {
+    description = "tbc"
+  }
+
   product {
     type = "PING_ONE_BASE"
   }
