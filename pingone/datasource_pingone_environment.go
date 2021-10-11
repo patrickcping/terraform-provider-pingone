@@ -45,7 +45,9 @@ func datasourceEnvironment() *schema.Resource {
 }
 
 func datasourceEnvironmentRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
 	var diags diag.Diagnostics
 
 	envID := d.Get("environment_id").(string)
@@ -56,7 +58,7 @@ func datasourceEnvironmentRead(ctx context.Context, d *schema.ResourceData, meta
 
 		limit := int32(1000)
 		filter := fmt.Sprintf("name sw \"%s\"", envName) // need the eq filter
-		respList, r, err := api_client.ManagementAPIsEnvironmentsApi.ReadAllEnvironments(context.Background()).Limit(limit).Filter(filter).Execute()
+		respList, r, err := api_client.ManagementAPIsEnvironmentsApi.ReadAllEnvironments(ctx).Limit(limit).Filter(filter).Execute()
 		if err != nil {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
@@ -72,7 +74,7 @@ func datasourceEnvironmentRead(ctx context.Context, d *schema.ResourceData, meta
 
 	} else {
 
-		resp, r, err := api_client.ManagementAPIsEnvironmentsApi.ReadOneEnvironment(context.Background(), envID).Execute()
+		resp, r, err := api_client.ManagementAPIsEnvironmentsApi.ReadOneEnvironment(ctx, envID).Execute()
 		if err != nil {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,

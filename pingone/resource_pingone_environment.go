@@ -106,7 +106,10 @@ var billOfMaterialsProductElem = &schema.Resource{
 }
 
 func resourceEnvironmentCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
+
 	var diags diag.Diagnostics
 
 	envName := d.Get("name").(string)
@@ -128,7 +131,7 @@ func resourceEnvironmentCreate(ctx context.Context, d *schema.ResourceData, meta
 	environment.SetRegion(envRegion)
 	environment.SetLicense(environmentLicense)
 
-	resp, r, err := api_client.ManagementAPIsEnvironmentsApi.CreateEnvironmentActiveLicense(context.Background()).Environment(environment).Execute()
+	resp, r, err := api_client.ManagementAPIsEnvironmentsApi.CreateEnvironmentActiveLicense(ctx).Environment(environment).Execute()
 	if (err != nil) && (r.StatusCode != 201) {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -145,7 +148,7 @@ func resourceEnvironmentCreate(ctx context.Context, d *schema.ResourceData, meta
 		billOfMaterials := *pingone.NewBillOfMaterials() // Environment |  (optional)
 		billOfMaterials.SetProducts(productBOMItems)
 
-		_, r, err := api_client.ManagementAPIsBillOfMaterialsBOMApi.UpdateBillOfMaterials(context.Background(), resp.GetId()).BillOfMaterials(billOfMaterials).Execute()
+		_, r, err := api_client.ManagementAPIsBillOfMaterialsBOMApi.UpdateBillOfMaterials(ctx, resp.GetId()).BillOfMaterials(billOfMaterials).Execute()
 		if err != nil {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
@@ -167,7 +170,7 @@ func resourceEnvironmentCreate(ctx context.Context, d *schema.ResourceData, meta
 	population.SetName(popName)
 	population.SetDescription(popDescription)
 
-	popResp, popR, popErr := api_client.ManagementAPIsPopulationsApi.CreatePopulation(context.Background(), resp.GetId()).Population(population).Execute()
+	popResp, popR, popErr := api_client.ManagementAPIsPopulationsApi.CreatePopulation(ctx, resp.GetId()).Population(population).Execute()
 	if (err != nil) && (r.StatusCode != 201) {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -184,13 +187,15 @@ func resourceEnvironmentCreate(ctx context.Context, d *schema.ResourceData, meta
 }
 
 func resourceEnvironmentRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
 	var diags diag.Diagnostics
 
 	attributes := strings.SplitN(d.Id(), "/", 2)
 	envID, populationID := attributes[0], attributes[1]
 
-	resp, r, err := api_client.ManagementAPIsEnvironmentsApi.ReadOneEnvironment(context.Background(), envID).Execute()
+	resp, r, err := api_client.ManagementAPIsEnvironmentsApi.ReadOneEnvironment(ctx, envID).Execute()
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -208,7 +213,7 @@ func resourceEnvironmentRead(ctx context.Context, d *schema.ResourceData, meta i
 	d.Set("region", resp.GetRegion())
 	d.Set("license_id", resp.GetLicense().Id)
 
-	respBOM, rBOM, errBOM := api_client.ManagementAPIsBillOfMaterialsBOMApi.ReadOneBillOfMaterials(context.Background(), envID).Execute()
+	respBOM, rBOM, errBOM := api_client.ManagementAPIsBillOfMaterialsBOMApi.ReadOneBillOfMaterials(ctx, envID).Execute()
 	if errBOM != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -223,7 +228,7 @@ func resourceEnvironmentRead(ctx context.Context, d *schema.ResourceData, meta i
 	log.Printf("products: %v\n", productBOMItems)
 	d.Set("product", productBOMItems)
 
-	popResp, popR, popErr := api_client.ManagementAPIsPopulationsApi.ReadOnePopulation(context.Background(), envID, populationID).Execute()
+	popResp, popR, popErr := api_client.ManagementAPIsPopulationsApi.ReadOnePopulation(ctx, envID, populationID).Execute()
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -242,7 +247,9 @@ func resourceEnvironmentRead(ctx context.Context, d *schema.ResourceData, meta i
 }
 
 func resourceEnvironmentUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
 	var diags diag.Diagnostics
 
 	attributes := strings.SplitN(d.Id(), "/", 2)
@@ -269,7 +276,7 @@ func resourceEnvironmentUpdate(ctx context.Context, d *schema.ResourceData, meta
 		inlineObject2 := *pingone.NewInlineObject2()
 		_, newType := d.GetChange("type")
 		inlineObject2.SetType(newType.(string))
-		_, r, err := api_client.ManagementAPIsEnvironmentsApi.UpdateEnvironmentType(context.Background(), envID).InlineObject2(inlineObject2).Execute()
+		_, r, err := api_client.ManagementAPIsEnvironmentsApi.UpdateEnvironmentType(ctx, envID).InlineObject2(inlineObject2).Execute()
 		if err != nil {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
@@ -281,7 +288,7 @@ func resourceEnvironmentUpdate(ctx context.Context, d *schema.ResourceData, meta
 		}
 	}
 
-	_, r, err := api_client.ManagementAPIsEnvironmentsApi.UpdateEnvironment(context.Background(), envID).Environment(environment).Execute()
+	_, r, err := api_client.ManagementAPIsEnvironmentsApi.UpdateEnvironment(ctx, envID).Environment(environment).Execute()
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -298,7 +305,7 @@ func resourceEnvironmentUpdate(ctx context.Context, d *schema.ResourceData, meta
 		billOfMaterials := *pingone.NewBillOfMaterials() // Environment |  (optional)
 		billOfMaterials.SetProducts(productBOMItems)
 
-		_, r, err := api_client.ManagementAPIsBillOfMaterialsBOMApi.UpdateBillOfMaterials(context.Background(), envID).BillOfMaterials(billOfMaterials).Execute()
+		_, r, err := api_client.ManagementAPIsBillOfMaterialsBOMApi.UpdateBillOfMaterials(ctx, envID).BillOfMaterials(billOfMaterials).Execute()
 		if err != nil {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
@@ -319,7 +326,7 @@ func resourceEnvironmentUpdate(ctx context.Context, d *schema.ResourceData, meta
 		population.SetName(popName)
 		population.SetDescription(popDescription)
 
-		_, r, err := api_client.ManagementAPIsPopulationsApi.UpdatePopulation(context.Background(), envID, populationID).Population(population).Execute()
+		_, r, err := api_client.ManagementAPIsPopulationsApi.UpdatePopulation(ctx, envID, populationID).Population(population).Execute()
 		if err != nil {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
@@ -336,13 +343,15 @@ func resourceEnvironmentUpdate(ctx context.Context, d *schema.ResourceData, meta
 }
 
 func resourceEnvironmentDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
 	var diags diag.Diagnostics
 
 	attributes := strings.SplitN(d.Id(), "/", 2)
 	envID := attributes[0]
 
-	_, err := api_client.ManagementAPIsEnvironmentsApi.DeleteEnvironment(context.Background(), envID).Execute()
+	_, err := api_client.ManagementAPIsEnvironmentsApi.DeleteEnvironment(ctx, envID).Execute()
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,

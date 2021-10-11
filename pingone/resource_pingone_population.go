@@ -41,7 +41,9 @@ func resourcePopulation() *schema.Resource {
 }
 
 func resourcePopulationCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
 	var diags diag.Diagnostics
 
 	envID := d.Get("environment_id").(string)
@@ -54,7 +56,7 @@ func resourcePopulationCreate(ctx context.Context, d *schema.ResourceData, meta 
 	population.SetName(popName)
 	population.SetDescription(popDescription)
 
-	resp, r, err := api_client.ManagementAPIsPopulationsApi.CreatePopulation(context.Background(), envID).Population(population).Execute()
+	resp, r, err := api_client.ManagementAPIsPopulationsApi.CreatePopulation(ctx, envID).Population(population).Execute()
 	if (err != nil) && (r.StatusCode != 201) {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -71,13 +73,15 @@ func resourcePopulationCreate(ctx context.Context, d *schema.ResourceData, meta 
 }
 
 func resourcePopulationRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
 	var diags diag.Diagnostics
 
 	popID := d.Id()
 	envID := d.Get("environment_id").(string)
 
-	resp, r, err := api_client.ManagementAPIsPopulationsApi.ReadOnePopulation(context.Background(), envID, popID).Execute()
+	resp, r, err := api_client.ManagementAPIsPopulationsApi.ReadOnePopulation(ctx, envID, popID).Execute()
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -95,7 +99,9 @@ func resourcePopulationRead(ctx context.Context, d *schema.ResourceData, meta in
 }
 
 func resourcePopulationUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
 	var diags diag.Diagnostics
 
 	envID := d.Get("environment_id").(string)
@@ -108,7 +114,7 @@ func resourcePopulationUpdate(ctx context.Context, d *schema.ResourceData, meta 
 	population.SetName(popName)
 	population.SetDescription(popDescription)
 
-	_, r, err := api_client.ManagementAPIsPopulationsApi.UpdatePopulation(context.Background(), envID, popID).Population(population).Execute()
+	_, r, err := api_client.ManagementAPIsPopulationsApi.UpdatePopulation(ctx, envID, popID).Population(population).Execute()
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -123,14 +129,16 @@ func resourcePopulationUpdate(ctx context.Context, d *schema.ResourceData, meta 
 }
 
 func resourcePopulationDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
 	var diags diag.Diagnostics
 
 	envID := d.Get("environment_id").(string)
 
 	popID := d.Id()
 
-	_, err := api_client.ManagementAPIsPopulationsApi.DeletePopulation(context.Background(), envID, popID).Execute()
+	_, err := api_client.ManagementAPIsPopulationsApi.DeletePopulation(ctx, envID, popID).Execute()
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,

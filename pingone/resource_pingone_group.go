@@ -54,7 +54,9 @@ func resourceGroup() *schema.Resource {
 }
 
 func resourceGroupCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
 	var diags diag.Diagnostics
 
 	envID := d.Get("environment_id").(string)
@@ -89,7 +91,7 @@ func resourceGroupCreate(ctx context.Context, d *schema.ResourceData, meta inter
 	}
 
 	log.Printf("Error when calling `ManagementAPIsGroupsApi.CreateGroup``: %v", group)
-	resp, r, err := api_client.ManagementAPIsGroupsApi.CreateGroup(context.Background(), envID).Group(group).Execute()
+	resp, r, err := api_client.ManagementAPIsGroupsApi.CreateGroup(ctx, envID).Group(group).Execute()
 	if (err != nil) && (r.StatusCode != 201) {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -106,13 +108,15 @@ func resourceGroupCreate(ctx context.Context, d *schema.ResourceData, meta inter
 }
 
 func resourceGroupRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
 	var diags diag.Diagnostics
 
 	groupID := d.Id()
 	envID := d.Get("environment_id").(string)
 
-	resp, r, err := api_client.ManagementAPIsGroupsApi.ReadOneGroup(context.Background(), envID, groupID).Execute()
+	resp, r, err := api_client.ManagementAPIsGroupsApi.ReadOneGroup(ctx, envID, groupID).Execute()
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -133,7 +137,9 @@ func resourceGroupRead(ctx context.Context, d *schema.ResourceData, meta interfa
 }
 
 func resourceGroupUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
 	var diags diag.Diagnostics
 
 	envID := d.Get("environment_id").(string)
@@ -169,7 +175,7 @@ func resourceGroupUpdate(ctx context.Context, d *schema.ResourceData, meta inter
 		group.SetExternalId(externalID)
 	}
 
-	_, r, err := api_client.ManagementAPIsGroupsApi.UpdateGroup(context.Background(), envID, groupID).Group(group).Execute()
+	_, r, err := api_client.ManagementAPIsGroupsApi.UpdateGroup(ctx, envID, groupID).Group(group).Execute()
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -184,14 +190,16 @@ func resourceGroupUpdate(ctx context.Context, d *schema.ResourceData, meta inter
 }
 
 func resourceGroupDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
 	var diags diag.Diagnostics
 
 	envID := d.Get("environment_id").(string)
 
 	groupID := d.Id()
 
-	_, err := api_client.ManagementAPIsGroupsApi.DeleteGroup(context.Background(), envID, groupID).Execute()
+	_, err := api_client.ManagementAPIsGroupsApi.DeleteGroup(ctx, envID, groupID).Execute()
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,

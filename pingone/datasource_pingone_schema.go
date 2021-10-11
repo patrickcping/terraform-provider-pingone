@@ -37,7 +37,9 @@ func datasourceSchema() *schema.Resource {
 }
 
 func datasourceSchemaRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
 	var diags diag.Diagnostics
 
 	envID := d.Get("environment_id").(string)
@@ -47,7 +49,7 @@ func datasourceSchemaRead(ctx context.Context, d *schema.ResourceData, meta inte
 	var resp pingone.Schema
 	if schemaName != "" {
 
-		respList, r, err := api_client.ManagementAPIsSchemasApi.ReadAllSchemas(context.Background(), envID).Execute()
+		respList, r, err := api_client.ManagementAPIsSchemasApi.ReadAllSchemas(ctx, envID).Execute()
 		if err != nil {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
@@ -67,7 +69,7 @@ func datasourceSchemaRead(ctx context.Context, d *schema.ResourceData, meta inte
 
 	} else {
 
-		resp, r, err := api_client.ManagementAPIsSchemasApi.ReadOneSchema(context.Background(), envID, schemaID).Execute()
+		resp, r, err := api_client.ManagementAPIsSchemasApi.ReadOneSchema(ctx, envID, schemaID).Execute()
 		if err != nil {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,

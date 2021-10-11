@@ -86,7 +86,9 @@ func resourceSchemaAttribute() *schema.Resource {
 }
 
 func resourceSchemaAttributeCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
 	var diags diag.Diagnostics
 
 	envID := d.Get("environment_id").(string)
@@ -112,7 +114,7 @@ func resourceSchemaAttributeCreate(ctx context.Context, d *schema.ResourceData, 
 	schemaAttribute.SetMultiValued(multivalued)
 	schemaAttribute.SetRequired(required)
 
-	resp, r, err := api_client.ManagementAPIsSchemasApi.CreateAttribute(context.Background(), envID, schemaID).SchemaAttribute(schemaAttribute).Execute()
+	resp, r, err := api_client.ManagementAPIsSchemasApi.CreateAttribute(ctx, envID, schemaID).SchemaAttribute(schemaAttribute).Execute()
 	if (err != nil) && (r.StatusCode != 201) {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -129,14 +131,16 @@ func resourceSchemaAttributeCreate(ctx context.Context, d *schema.ResourceData, 
 }
 
 func resourceSchemaAttributeRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
 	var diags diag.Diagnostics
 
 	schemaAttributeID := d.Id()
 	envID := d.Get("environment_id").(string)
 	schemaID := d.Get("schema_id").(string)
 
-	resp, r, err := api_client.ManagementAPIsSchemasApi.ReadOneAttribute(context.Background(), envID, schemaID, schemaAttributeID).Execute()
+	resp, r, err := api_client.ManagementAPIsSchemasApi.ReadOneAttribute(ctx, envID, schemaID, schemaAttributeID).Execute()
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -162,7 +166,9 @@ func resourceSchemaAttributeRead(ctx context.Context, d *schema.ResourceData, me
 }
 
 func resourceSchemaAttributeUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
 	var diags diag.Diagnostics
 
 	attributeID := d.Id()
@@ -190,7 +196,7 @@ func resourceSchemaAttributeUpdate(ctx context.Context, d *schema.ResourceData, 
 	schemaAttribute.SetMultiValued(multivalued)
 	schemaAttribute.SetRequired(required)
 
-	_, r, err := api_client.ManagementAPIsSchemasApi.UpdateAttributePatch(context.Background(), envID, schemaID, attributeID).SchemaAttribute(schemaAttribute).Execute()
+	_, r, err := api_client.ManagementAPIsSchemasApi.UpdateAttributePatch(ctx, envID, schemaID, attributeID).SchemaAttribute(schemaAttribute).Execute()
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -205,7 +211,9 @@ func resourceSchemaAttributeUpdate(ctx context.Context, d *schema.ResourceData, 
 }
 
 func resourceSchemaAttributeDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
 	var diags diag.Diagnostics
 
 	envID := d.Get("environment_id").(string)
@@ -213,7 +221,7 @@ func resourceSchemaAttributeDelete(ctx context.Context, d *schema.ResourceData, 
 
 	attributeID := d.Id()
 
-	_, err := api_client.ManagementAPIsSchemasApi.DeleteAttribute(context.Background(), envID, schemaID, attributeID).Execute()
+	_, err := api_client.ManagementAPIsSchemasApi.DeleteAttribute(ctx, envID, schemaID, attributeID).Execute()
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,

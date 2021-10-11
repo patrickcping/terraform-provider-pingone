@@ -58,7 +58,9 @@ func resourceUserRoleAssignment() *schema.Resource {
 }
 
 func resourceUserRoleAssignmentCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
 	var diags diag.Diagnostics
 
 	envID := d.Get("environment_id").(string)
@@ -80,7 +82,7 @@ func resourceUserRoleAssignmentCreate(ctx context.Context, d *schema.ResourceDat
 	userRoleAssignment.SetRole(userRoleAssignmentRole)
 	userRoleAssignment.SetScope(userRoleAssignmentScope)
 
-	resp, r, err := api_client.ManagementAPIsUsersUserRoleAssignmentsApi.CreateUserRoleAssignment(context.Background(), envID, userID).RoleAssignment(userRoleAssignment).Execute()
+	resp, r, err := api_client.ManagementAPIsUsersUserRoleAssignmentsApi.CreateUserRoleAssignment(ctx, envID, userID).RoleAssignment(userRoleAssignment).Execute()
 	if (err != nil) && (r.StatusCode != 201) {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -97,14 +99,16 @@ func resourceUserRoleAssignmentCreate(ctx context.Context, d *schema.ResourceDat
 }
 
 func resourceUserRoleAssignmentRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
 	var diags diag.Diagnostics
 
 	roleAssignmentID := d.Id()
 	envID := d.Get("environment_id").(string)
 	userID := d.Get("user_id").(string)
 
-	resp, r, err := api_client.ManagementAPIsUsersUserRoleAssignmentsApi.ReadOneRoleAssignment(context.Background(), envID, userID, roleAssignmentID).Execute()
+	resp, r, err := api_client.ManagementAPIsUsersUserRoleAssignmentsApi.ReadOneRoleAssignment(ctx, envID, userID, roleAssignmentID).Execute()
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -124,7 +128,9 @@ func resourceUserRoleAssignmentRead(ctx context.Context, d *schema.ResourceData,
 }
 
 func resourceUserRoleAssignmentDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
 	var diags diag.Diagnostics
 
 	roleAssignmentID := d.Id()
@@ -141,7 +147,7 @@ func resourceUserRoleAssignmentDelete(ctx context.Context, d *schema.ResourceDat
 		return diags
 	}
 
-	_, err := api_client.ManagementAPIsUsersUserRoleAssignmentsApi.DeleteUserRoleAssignment(context.Background(), envID, userID, roleAssignmentID).Execute()
+	_, err := api_client.ManagementAPIsUsersUserRoleAssignmentsApi.DeleteUserRoleAssignment(ctx, envID, userID, roleAssignmentID).Execute()
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,

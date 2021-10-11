@@ -18,10 +18,11 @@ type p1ClientConfig struct {
 }
 
 type p1Client struct {
-	//ConfigStore                               configStore.ConfigStoreAPI
+	APIClient      *pingone.APIClient
+	regionUrlIndex int
 }
 
-func (c *p1ClientConfig) ApiClient(ctx context.Context) (*pingone.APIClient, error) {
+func (c *p1ClientConfig) ApiClient(ctx context.Context) (*p1Client, error) {
 	// var err error
 	var client *pingone.APIClient
 
@@ -34,8 +35,36 @@ func (c *p1ClientConfig) ApiClient(ctx context.Context) (*pingone.APIClient, err
 	clientcfg.AddDefaultHeader("Authorization", fmt.Sprintf("Bearer %s", token.AccessToken))
 	client = pingone.NewAPIClient(clientcfg)
 
+	apiUrl := "https://api.pingone"
+	switch p1Region := c.Region; p1Region {
+	case "EU":
+		apiUrl = fmt.Sprintf("%s.eu", apiUrl)
+	case "US":
+		apiUrl = fmt.Sprintf("%s.com", apiUrl)
+	case "ASIA":
+		apiUrl = fmt.Sprintf("%s.asia", apiUrl)
+	case "CA":
+		apiUrl = fmt.Sprintf("%s.ca", apiUrl)
+	default:
+		apiUrl = fmt.Sprintf("%s.com", apiUrl)
+	}
+
+	var regionUrlIndex int
+	for p, v := range clientcfg.Servers {
+		if v.URL == apiUrl {
+			regionUrlIndex = p
+		}
+	}
+
+	log.Printf("[INFO] PingOne Client using region index %d", regionUrlIndex)
+
+	apiClient := &p1Client{
+		APIClient:      client,
+		regionUrlIndex: regionUrlIndex,
+	}
+
 	log.Printf("[INFO] PingOne Client configured")
-	return client, nil
+	return apiClient, nil
 }
 
 func getToken(ctx context.Context, c *p1ClientConfig) (*oauth2.Token, error) {

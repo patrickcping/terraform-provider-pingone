@@ -49,7 +49,9 @@ func datasourceGroup() *schema.Resource {
 }
 
 func datasourceGroupRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
 	var diags diag.Diagnostics
 
 	envID := d.Get("environment_id").(string)
@@ -62,7 +64,7 @@ func datasourceGroupRead(ctx context.Context, d *schema.ResourceData, meta inter
 		filter := fmt.Sprintf("name eq \"%s\"", groupName)
 		limit := int32(1)
 
-		respList, r, err := api_client.ManagementAPIsGroupsApi.ReadAllGroups(context.Background(), envID).Filter(filter).Limit(limit).Execute()
+		respList, r, err := api_client.ManagementAPIsGroupsApi.ReadAllGroups(ctx, envID).Filter(filter).Limit(limit).Execute()
 		if err != nil {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
@@ -77,7 +79,7 @@ func datasourceGroupRead(ctx context.Context, d *schema.ResourceData, meta inter
 
 	} else {
 
-		resp, r, err := api_client.ManagementAPIsGroupsApi.ReadOneGroup(context.Background(), envID, groupID).Execute()
+		resp, r, err := api_client.ManagementAPIsGroupsApi.ReadOneGroup(ctx, envID, groupID).Execute()
 		if err != nil {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,

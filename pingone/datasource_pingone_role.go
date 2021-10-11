@@ -33,7 +33,9 @@ func datasourceRole() *schema.Resource {
 }
 
 func datasourceRoleRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
 	var diags diag.Diagnostics
 
 	roleID := d.Get("role_id").(string)
@@ -42,7 +44,7 @@ func datasourceRoleRead(ctx context.Context, d *schema.ResourceData, meta interf
 	var resp pingone.Role
 	if roleName != "" {
 
-		respList, r, err := api_client.ManagementAPIsRolesApi.ReadAllRoles(context.Background()).Execute()
+		respList, r, err := api_client.ManagementAPIsRolesApi.ReadAllRoles(ctx).Execute()
 		if err != nil {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
@@ -62,7 +64,7 @@ func datasourceRoleRead(ctx context.Context, d *schema.ResourceData, meta interf
 
 	} else {
 
-		resp, r, err := api_client.ManagementAPIsRolesApi.ReadOneRole(context.Background(), roleID).Execute()
+		resp, r, err := api_client.ManagementAPIsRolesApi.ReadOneRole(ctx, roleID).Execute()
 		if err != nil {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,

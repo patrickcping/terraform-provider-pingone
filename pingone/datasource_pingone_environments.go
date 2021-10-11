@@ -57,7 +57,9 @@ func datasourceEnvironments() *schema.Resource {
 }
 
 func datasourceEnvironmentsRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
+	p1Client := meta.(*p1Client)
+	api_client := p1Client.APIClient
+	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
 	var diags diag.Diagnostics
 
 	filter := d.Get("filter").(string)
@@ -65,7 +67,7 @@ func datasourceEnvironmentsRead(ctx context.Context, d *schema.ResourceData, met
 	var resp []pingone.Environment
 
 	limit := int32(1000)
-	respList, r, err := api_client.ManagementAPIsEnvironmentsApi.ReadAllEnvironments(context.Background()).Limit(limit).Filter(filter).Execute()
+	respList, r, err := api_client.ManagementAPIsEnvironmentsApi.ReadAllEnvironments(ctx).Limit(limit).Filter(filter).Execute()
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
