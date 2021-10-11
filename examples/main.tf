@@ -2,7 +2,7 @@ terraform {
   required_providers {
     pingone = {
       version = "0.2"
-      source  = "pingidentity.com/edu/pingone"
+      source  = "patrickcping/pingone"
     }
   }
 }
@@ -10,9 +10,8 @@ terraform {
 provider "pingone" {
   client_id       = var.p1_adminClientId
   client_secret   = var.p1_adminClientSecret
-	access_token    = "<<fill this in if you want to test - client creds routine tbc>>"
 	environment_id  = var.p1_adminEnvId
-	domain_suffix   = "EU"
+	region          = var.p1_region
 }
 
 data "pingone_environment" "admin_env" {

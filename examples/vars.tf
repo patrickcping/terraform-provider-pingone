@@ -10,10 +10,10 @@ variable "p1_adminClientSecret" {
     description = "p1_adminClientSecret."
 }
 
-variable "p1_orgAdminUserId" {
-    description = "p1_orgAdminUserId."
+variable "p1_region" {
+  description = "The PingOne region to use.  Must be one of `EU`, `US`, `ASIA`, `CA`"
 }
 
 variable "p1_licenseId" {
-    description = "p1_licenseId."
+  
 }

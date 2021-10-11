@@ -1,21 +1,23 @@
+<a href="https://terraform.io">
+    <img src="https://cdn.rawgit.com/hashicorp/terraform-website/master/content/source/assets/images/logo-hashicorp.svg" alt="Terraform logo" title="Terraform" align="right" height="50" />
+</a>
 # Terraform Provider PingOne
 
-Run the following command to build the provider
+## Requirements
+* Terraform 1.0.8
+* Go 1.15
 
-```shell
-go build -o terraform-provider-pingone
-```
+## Quickstarts
 
-## Test sample configuration
+* Getting started (coming soon)
+* [Developing the provider](docs/development.md)
 
-First, build and install the provider.
+## Documentation
 
-```shell
-make install
-```
+Extended documentation can be found at:
+* Terraform Registry (coming soon)
+* [PingOne API and Developer Documentation](https://apidocs.pingidentity.com/pingone/platform/v1/api/)
 
-Then, run the following command to initialize the workspace and apply the sample configuration.
+## Contributing
 
-```shell
-terraform init && terraform apply
-```
+To contribute, please read the [contribution guidelines](CONTRIBUTING.md)
