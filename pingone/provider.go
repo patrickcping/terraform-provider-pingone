@@ -3,86 +3,97 @@ package pingone
 import (
 	"context"
 	"log"
+	"os"
 
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/patrickcping/pingone-go"
 )
 
-// Provider -
-func Provider() *schema.Provider {
-	provider := &schema.Provider{
-		Schema: map[string]*schema.Schema{
+var stderr = os.Stderr
+
+func New() tfsdk.Provider {
+	return &provider{}
+}
+
+type provider struct {
+	configured bool
+	client     *pingone.APIClient
+}
+
+// GetSchema -
+func (p *provider) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
+	return tfsdk.Schema{
+		Attributes: map[string]tfsdk.Attribute{
 			"client_id": {
-				Type:        schema.TypeString,
+				Type:        types.StringType,
 				Optional:    true,
 				Description: descriptions["client_id"],
 			},
 			"client_secret": {
-				Type:        schema.TypeString,
+				Type:        types.StringType,
 				Optional:    true,
+				Sensitive:   true,
 				Description: descriptions["client_secret"],
 			},
 			"access_token": {
-				Type:        schema.TypeString,
+				Type:        types.StringType,
 				Required:    true,
 				Description: descriptions["access_token"],
 			},
 			"environment_id": {
-				Type:        schema.TypeString,
+				Type:        types.StringType,
 				Required:    true,
 				Description: descriptions["environment_id"],
 			},
 			"domain_suffix": {
-				Type:        schema.TypeString,
+				Type:        types.StringType,
 				Required:    true,
 				Description: descriptions["domain_suffix"],
-				DefaultFunc: schema.MultiEnvDefaultFunc([]string{"PINGONE_DOMAIN_SUFFIX"}, "eu"),
 			},
 		},
-		ResourcesMap: map[string]*schema.Resource{
-			"pingone_environment":      resourceEnvironment(),
-			"pingone_group":            resourceGroup(),
-			"pingone_population":       resourcePopulation(),
-			"pingone_role_assignment":  resourceUserRoleAssignment(),
-			"pingone_schema_attribute": resourceSchemaAttribute(),
-		},
-		DataSourcesMap: map[string]*schema.Resource{
-			"pingone_environment":  datasourceEnvironment(),
-			"pingone_environments": datasourceEnvironments(),
-			"pingone_group":        datasourceGroup(),
-			"pingone_role":         datasourceRole(),
-			"pingone_schema":       datasourceSchema(),
-		},
-		ConfigureContextFunc: providerConfigure,
-	}
-
-	return provider
+	}, nil
 }
 
 var descriptions map[string]string
 
-func init() {
-	descriptions = map[string]string{
-		"client_id":      "Client ID for the worker app client",
-		"client_secret":  "Client secret for the worker app client",
-		"access_token":   "An access token in lieu of the client ID and secret",
-		"environment_id": "Environment ID for the worker app client",
-		"domain_suffix":  "The domain suffix for the auth hostname and api hostname.  Value of eu translates to auth.pingone.eu and api.pingone.eu.  See https://apidocs.pingidentity.com/pingone/platform/v1/api/#top",
-	}
-}
-
-func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
+func (p *provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderRequest, resp *tfsdk.ConfigureProviderResponse) {
 	log.Printf("[INFO] PingOne Client configuring")
 
-	config := &p1ClientConfig{
-		ClientId:      d.Get("client_id").(string),
-		ClientSecret:  d.Get("client_secret").(string),
-		AccessToken:   d.Get("access_token").(string),
-		EnvironmentID: d.Get("environment_id").(string),
-		DomainSuffix:  d.Get("domain_suffix").(string),
+	var config providerData
+
+	diags := req.Config.Get(ctx, &config)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	client, _ := config.ApiClient()
 
-	return client, nil
+	p.client = client
+	p.configured = true
+
+}
+
+// GetResources - Defines provider resources
+func (p *provider) GetResources(_ context.Context) (map[string]tfsdk.ResourceType, diag.Diagnostics) {
+	return map[string]tfsdk.ResourceType{
+		"pingone_environment": resourceEnvironmentType{},
+		// "pingone_group":            resourceGroupType{},
+		// "pingone_population":       resourcePopulationType{},
+		// "pingone_role_assignment":  resourceUserRoleAssignmentType{},
+		// "pingone_schema_attribute": resourceSchemaAttributeType{},
+	}, nil
+}
+
+// GetDataSources - Defines provider data sources
+func (p *provider) GetDataSources(_ context.Context) (map[string]tfsdk.DataSourceType, diag.Diagnostics) {
+	return map[string]tfsdk.DataSourceType{
+		// "pingone_environment":  datasourceEnvironmentType{},
+		// "pingone_environments": datasourceEnvironmentsType{},
+		// "pingone_group":        datasourceGroupType{},
+		// "pingone_role":         datasourceRoleType{},
+		// "pingone_schema":       datasourceSchemaType{},
+	}, nil
 }

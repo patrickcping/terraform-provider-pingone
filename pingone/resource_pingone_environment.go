@@ -7,395 +7,522 @@ import (
 	"log"
 	"strings"
 
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/patrickcping/pingone-go"
 )
 
-func resourceEnvironment() *schema.Resource {
-	return &schema.Resource{
-		CreateContext: resourceEnvironmentCreate,
-		ReadContext:   resourceEnvironmentRead,
-		UpdateContext: resourceEnvironmentUpdate,
-		DeleteContext: resourceEnvironmentDelete,
-		Importer: &schema.ResourceImporter{
-			StateContext: resourceEnvironmentImport,
-		},
+type resourceEnvironmentType struct{}
 
-		Schema: map[string]*schema.Schema{
-			"environment_id": {
-				Type:     schema.TypeString,
+func (r resourceEnvironmentType) GetSchema(_ context.Context) (tfsdk.Schema, diag.Diagnostics) {
+	return tfsdk.Schema{
+		Attributes: map[string]tfsdk.Attribute{
+			"id": {
+				Type:     types.StringType,
 				Computed: true,
 			},
 			"name": {
-				Type:     schema.TypeString,
+				Type:     types.StringType,
 				Required: true,
 			},
 			"description": {
-				Type:     schema.TypeString,
+				Type:     types.StringType,
 				Optional: true,
 			},
 			"type": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				Default:      "SANDBOX",
-				ValidateFunc: validation.StringInSlice([]string{"PRODUCTION", "SANDBOX"}, false),
+				Type:     types.StringType,
+				Optional: true,
+				// Default:      "SANDBOX",
+				// ValidateFunc: validation.StringInSlice([]string{"PRODUCTION", "SANDBOX"}, false),
 			},
 			"region": {
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: validation.StringInSlice([]string{"NA", "EU", "AP"}, false),
-				ForceNew:     true,
+				Type:     types.StringType,
+				Required: true,
+				// ValidateFunc: validation.StringInSlice([]string{"NA", "EU", "AP"}, false),
+				// ForceNew:     true,
 			},
 			"license_id": {
-				Type:     schema.TypeString,
+				Type:     types.StringType,
 				Required: true,
-				ForceNew: true,
+				// ForceNew: true,
 			},
 			"product": {
-				Type:     schema.TypeSet,
-				Optional: true,
-				Elem:     billOfMaterialsProductElem,
-				Set:      HashByMapKey("type"),
-			},
-			"default_population_id": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"default_population_name": {
-				Type:     schema.TypeString,
 				Required: true,
+				Attributes: tfsdk.SetNestedAttributes(map[string]tfsdk.Attribute{
+					"type": {
+						Type:     types.StringType,
+						Required: true,
+					},
+					"console_href": {
+						Type:     types.StringType,
+						Optional: true,
+					},
+					"bookmark": {
+						Optional: true,
+						Attributes: tfsdk.SetNestedAttributes(map[string]tfsdk.Attribute{
+							"name": {
+								Type:     types.StringType,
+								Required: true,
+							},
+							"href": {
+								Type:     types.StringType,
+								Required: true,
+							},
+						}, tfsdk.SetNestedAttributesOptions{}),
+					},
+				}, tfsdk.SetNestedAttributesOptions{}),
 			},
-			"default_population_description": {
-				Type:     schema.TypeString,
-				Optional: true,
-			},
-		},
-	}
-}
-
-var billOfMaterialsProductElem = &schema.Resource{
-	Schema: map[string]*schema.Schema{
-		"type": {
-			Type:         schema.TypeString,
-			ValidateFunc: validation.StringInSlice([]string{"PING_ONE_MFA", "PING_ONE_RISK", "PING_ONE_VERIFY", "PING_ONE_BASE", "PING_FEDERATE", "PING_ACCESS", "PING_DIRECTORY", "PING_DATA_SYNC", "PING_DATA_GOVERNANCE", "PING_ONE_FOR_ENTERPRISE", "PING_ID", "PING_ID_SDK", "PING_INTELLIGENCE", "PING_CENTRAL"}, false),
-			Required:     true,
-		},
-		"console_href": {
-			Type:     schema.TypeString,
-			Optional: true,
-		},
-		"bookmark": {
-			Type:     schema.TypeSet,
-			Optional: true,
-			Elem: &schema.Resource{
-				Schema: map[string]*schema.Schema{
+			"default_population": {
+				Required: true,
+				Attributes: tfsdk.SingleNestedAttributes(map[string]tfsdk.Attribute{
+					"id": {
+						Type:     types.StringType,
+						Computed: true,
+					},
 					"name": {
-						Type:     schema.TypeString,
+						Type:     types.StringType,
 						Required: true,
 					},
-					"href": {
-						Type:     schema.TypeString,
-						Required: true,
+					"description": {
+						Type:     types.StringType,
+						Optional: true,
 					},
-				},
+				}),
 			},
 		},
-	},
+	}, nil
 }
 
-func resourceEnvironmentCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
-	var diags diag.Diagnostics
+func (r resourceEnvironmentType) NewResource(_ context.Context, p tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
+	return resourceEnvironment{
+		p: *(p.(*provider)),
+	}, nil
+}
 
-	envName := d.Get("name").(string)
-	envDescription := d.Get("description").(string)
-	envType := d.Get("type").(string)
-	envRegion := d.Get("region").(string)
+type resourceEnvironment struct {
+	p provider
+}
 
-	log.Printf("[INFO] Creating PingOne Environment: name %s, type %s", envName, envType)
+func (r resourceEnvironment) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
+	if !r.p.configured {
+		resp.Diagnostics.AddError(
+			"Provider not configured",
+			"The provider hasn't been configured before apply, likely because it depends on an unknown value from another resource. This leads to weird stuff happening, so we'd prefer if you didn't do that. Thanks!",
+		)
+		return
+	}
+
+	api_client := r.p.client
+
+	// Retrieve values from plan
+	var plan Environment
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	environmentLicense := *pingone.NewEnvironmentLicense()
-	if license, ok := d.GetOk("license_id"); ok {
-		environmentLicense.SetId(license.(string))
-	}
+	environmentLicense.SetId(plan.LicenseID.Value)
 
 	environment := *pingone.NewEnvironment() // Environment |  (optional)
-	environment.SetName(envName)
-	environment.SetDescription(envDescription)
-	environment.SetType(envType)
-	environment.SetRegion(envRegion)
+	environment.SetName(plan.Name.Value)
+	environment.SetDescription(plan.Description.Value)
+	if plan.Type.Null {
+		environment.SetType("SANDBOX")
+	} else {
+		environment.SetType(plan.Type.Value)
+	}
+	environment.SetRegion(plan.Region.Value)
 	environment.SetLicense(environmentLicense)
 
-	resp, r, err := api_client.ManagementAPIsEnvironmentsApi.CreateEnvironmentActiveLicense(context.Background()).Environment(environment).Execute()
-	if (err != nil) && (r.StatusCode != 201) {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsEnvironmentsApi.CreateEnvironmentActiveLicense``: %v", err),
-			Detail:   fmt.Sprintf("Full HTTP response: %v\n", r.Body),
-		})
+	log.Printf("[INFO] Creating PingOne Environment: name %s, type %s", plan.Name.Value, plan.Type.Value)
 
-		return diags
+	apiResp, http, err := api_client.ManagementAPIsEnvironmentsApi.CreateEnvironmentActiveLicense(context.Background()).Environment(environment).Execute()
+	if (err != nil) && (http.StatusCode != 201) {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("Error when calling `ManagementAPIsEnvironmentsApi.CreateEnvironmentActiveLicense``: %v", err),
+			fmt.Sprintf("Full HTTP response: %v\n", http.Body),
+		)
+
+		return
 	}
 
-	if products, ok := d.GetOk("product"); ok {
-		productBOMItems := buildBOMProductsCreateRequest(products.(*schema.Set).List())
+	productBOMItems := buildBOMProductsCreateRequest(plan.Products)
 
-		billOfMaterials := *pingone.NewBillOfMaterials() // Environment |  (optional)
-		billOfMaterials.SetProducts(productBOMItems)
+	billOfMaterials := *pingone.NewBillOfMaterials() // Environment |  (optional)
+	billOfMaterials.SetProducts(productBOMItems)
 
-		_, r, err := api_client.ManagementAPIsBillOfMaterialsBOMApi.UpdateBillOfMaterials(context.Background(), resp.GetId()).BillOfMaterials(billOfMaterials).Execute()
-		if err != nil {
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  fmt.Sprintf("Error when calling `ManagementAPIsBillOfMaterialsBOMApi.UpdateBillOfMaterials``: %v", err),
-				Detail:   fmt.Sprintf("Full HTTP response: %v\n", r.Body),
-			})
+	bomResp, bomHttp, bomErr := api_client.ManagementAPIsBillOfMaterialsBOMApi.UpdateBillOfMaterials(context.Background(), apiResp.GetId()).BillOfMaterials(billOfMaterials).Execute()
+	if bomErr != nil {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("Error when calling `ManagementAPIsBillOfMaterialsBOMApi.UpdateBillOfMaterials``: %v", bomErr),
+			fmt.Sprintf("Full HTTP response: %v\n", bomHttp.Body),
+		)
 
-			return diags
-		}
+		return
 	}
 
 	//Have to create a default population because of the destroy restriction on the population resource
-	popName := d.Get("default_population_name").(string)
-	popDescription := d.Get("default_population_description").(string)
-
-	log.Printf("[INFO] Creating PingOne Default Population: name %s", popName)
-
 	population := *pingone.NewPopulation() // Population |  (optional)
-	population.SetName(popName)
-	population.SetDescription(popDescription)
-
-	popResp, popR, popErr := api_client.ManagementAPIsPopulationsApi.CreatePopulation(context.Background(), resp.GetId()).Population(population).Execute()
-	if (err != nil) && (r.StatusCode != 201) {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsPopulationsApi.CreatePopulation``: %v", popErr),
-			Detail:   fmt.Sprintf("Full HTTP response: %v\n", popR.Body),
-		})
-
-		return diags
+	population.SetName(plan.DefaultPopulation.Name.Value)
+	if !plan.DefaultPopulation.Description.Null {
+		population.SetDescription(plan.DefaultPopulation.Description.Value)
 	}
 
-	d.SetId(fmt.Sprintf("%s/%s", resp.GetId(), popResp.GetId()))
+	log.Printf("[INFO] Creating PingOne Default Population: name %s", population.GetName())
 
-	return resourceEnvironmentRead(ctx, d, meta)
+	popResp, popR, popErr := api_client.ManagementAPIsPopulationsApi.CreatePopulation(context.Background(), apiResp.GetId()).Population(population).Execute()
+	if (popErr != nil) || (http.StatusCode != 201) {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("Error when calling `ManagementAPIsPopulationsApi.CreatePopulation``: %v", popErr),
+			fmt.Sprintf("Full HTTP response: %v\n", popR.Body),
+		)
+
+		return
+	}
+
+	log.Printf("Population: %s", popResp.GetName())
+
+	// Generate resource state struct
+	var result = Environment{
+		ID:          types.String{Value: apiResp.GetId()},
+		Name:        types.String{Value: apiResp.GetName()},
+		Description: types.String{Value: apiResp.GetDescription(), Null: !apiResp.HasDescription()},
+		Type:        types.String{Value: apiResp.GetType()},
+		Region:      types.String{Value: apiResp.GetRegion()},
+		LicenseID:   types.String{Value: *apiResp.GetLicense().Id},
+		Products:    flattenBOMProducts(bomResp),
+		DefaultPopulation: Population{
+			ID:          types.String{Value: popResp.GetId()},
+			Name:        types.String{Value: popResp.GetName()},
+			Description: types.String{Value: popResp.GetDescription(), Null: !popResp.HasDescription()},
+		},
+	}
+
+	diags = resp.State.Set(ctx, result)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 }
 
-func resourceEnvironmentRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
-	var diags diag.Diagnostics
+func (r resourceEnvironment) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+	api_client := r.p.client
+	log.Printf("aa")
+	// Get current state
+	var state Environment
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-	attributes := strings.SplitN(d.Id(), "/", 2)
-	envID, populationID := attributes[0], attributes[1]
+	envID := state.ID.Value
+	populationID := state.DefaultPopulation.ID.Value
 
-	resp, r, err := api_client.ManagementAPIsEnvironmentsApi.ReadOneEnvironment(context.Background(), envID).Execute()
+	apiResp, http, err := api_client.ManagementAPIsEnvironmentsApi.ReadOneEnvironment(context.Background(), envID).Execute()
 	if err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsEnvironmentsApi.ReadOneEnvironment``: %v", err),
-			Detail:   fmt.Sprintf("Full HTTP response: %v\n", r.Body),
-		})
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("Error when calling `ManagementAPIsEnvironmentsApi.ReadOneEnvironment``: %v", err),
+			fmt.Sprintf("Full HTTP response: %v\n", http.Body),
+		)
 
-		return diags
+		return
 	}
 
-	d.Set("environment_id", resp.GetId())
-	d.Set("name", resp.GetName())
-	d.Set("description", resp.GetDescription())
-	d.Set("type", resp.GetType())
-	d.Set("region", resp.GetRegion())
-	d.Set("license_id", resp.GetLicense().Id)
-
-	respBOM, rBOM, errBOM := api_client.ManagementAPIsBillOfMaterialsBOMApi.ReadOneBillOfMaterials(context.Background(), envID).Execute()
+	bomResp, rBOM, errBOM := api_client.ManagementAPIsBillOfMaterialsBOMApi.ReadOneBillOfMaterials(context.Background(), envID).Execute()
 	if errBOM != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsEnvironmentsApi.ReadOneEnvironment``: %v", errBOM),
-			Detail:   fmt.Sprintf("Full HTTP response: %v\n", rBOM),
-		})
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("Error when calling `ManagementAPIsEnvironmentsApi.ReadOneEnvironment``: %v", errBOM),
+			fmt.Sprintf("Full HTTP response: %v\n", rBOM),
+		)
 
-		return diags
+		return
 	}
-
-	productBOMItems := flattenBOMProducts(respBOM)
-	log.Printf("products: %v\n", productBOMItems)
-	d.Set("product", productBOMItems)
 
 	popResp, popR, popErr := api_client.ManagementAPIsPopulationsApi.ReadOnePopulation(context.Background(), envID, populationID).Execute()
-	if err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsPopulationsApi.ReadOnePopulation``: %v", popErr),
-			Detail:   fmt.Sprintf("Full HTTP response: %v\n", popR.Body),
-		})
+	if popErr != nil {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("Error when calling `ManagementAPIsPopulationsApi.ReadOnePopulation``: %v", popErr),
+			fmt.Sprintf("Full HTTP response: %v\n", popR.Body),
+		)
 
-		return diags
+		return
 	}
 
-	d.Set("default_population_id", popResp.GetId())
-	d.Set("default_population_name", popResp.GetName())
-	d.Set("default_population_description", popResp.GetDescription())
-
-	return diags
+	state = Environment{
+		ID:          types.String{Value: apiResp.GetId()},
+		Name:        types.String{Value: apiResp.GetName()},
+		Description: types.String{Value: apiResp.GetDescription(), Null: !apiResp.HasDescription()},
+		Type:        types.String{Value: apiResp.GetType()},
+		Region:      types.String{Value: apiResp.GetRegion()},
+		LicenseID:   types.String{Value: *apiResp.GetLicense().Id},
+		Products:    flattenBOMProducts(bomResp),
+		DefaultPopulation: Population{
+			ID:          types.String{Value: popResp.GetId()},
+			Name:        types.String{Value: popResp.GetName()},
+			Description: types.String{Value: popResp.GetDescription(), Null: !popResp.HasDescription()},
+		},
+	}
+	log.Printf("a")
+	// Set state
+	diags = resp.State.Set(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		log.Printf("b")
+		return
+	}
+	log.Printf("c")
 }
 
-func resourceEnvironmentUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
-	var diags diag.Diagnostics
+func (r resourceEnvironment) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+	api_client := r.p.client
 
-	attributes := strings.SplitN(d.Id(), "/", 2)
-	envID, populationID := attributes[0], attributes[1]
-	envName := d.Get("name").(string)
-	envDescription := d.Get("description").(string)
-	envType := d.Get("type").(string)
-	envRegion := d.Get("region").(string)
+	log.Printf("z")
+	// Get plan values
+	var plan Environment
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	log.Printf("y")
+	// Get current state
+	var state Environment
+	diags = req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	log.Printf("x")
+	envID := state.ID.Value
+	populationID := state.DefaultPopulation.ID.Value
 
 	environmentLicense := *pingone.NewEnvironmentLicense()
-	if license, ok := d.GetOk("license_id"); ok {
-		environmentLicense.SetId(license.(string))
-	}
+	environmentLicense.SetId(plan.LicenseID.Value)
 
 	environment := *pingone.NewEnvironment() // Environment |  (optional)
-	environment.SetName(envName)
-	environment.SetDescription(envDescription)
-	environment.SetType(envType)
-	environment.SetRegion(envRegion)
+	environment.SetName(plan.Name.Value)
+	environment.SetDescription(plan.Description.Value)
+	if plan.Type.Null {
+		environment.SetType("SANDBOX")
+	} else {
+		environment.SetType(plan.Type.Value)
+	}
+	environment.SetRegion(plan.Region.Value)
 	environment.SetLicense(environmentLicense)
 
-	if change := d.HasChange("type"); change {
+	if change := plan.Type.Value != state.Type.Value; change {
 		//If type has changed from SANDBOX -> PRODUCTION and vice versa we need a separate API call
 		inlineObject2 := *pingone.NewInlineObject2()
-		_, newType := d.GetChange("type")
-		inlineObject2.SetType(newType.(string))
-		_, r, err := api_client.ManagementAPIsEnvironmentsApi.UpdateEnvironmentType(context.Background(), envID).InlineObject2(inlineObject2).Execute()
+		inlineObject2.SetType(plan.Type.Value)
+		_, http, err := api_client.ManagementAPIsEnvironmentsApi.UpdateEnvironmentType(context.Background(), envID).InlineObject2(inlineObject2).Execute()
 		if err != nil {
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  fmt.Sprintf("Error when calling `ManagementAPIsEnvironmentsApi.UpdateEnvironmentType``: %v", err),
-				Detail:   fmt.Sprintf("Full HTTP response: %v\n", r.Body),
-			})
+			resp.Diagnostics.AddError(
+				fmt.Sprintf("Error when calling `ManagementAPIsEnvironmentsApi.UpdateEnvironmentType``: %v", err),
+				fmt.Sprintf("Full HTTP response: %v\n", http.Body),
+			)
 
-			return diags
+			return
 		}
 	}
 
-	_, r, err := api_client.ManagementAPIsEnvironmentsApi.UpdateEnvironment(context.Background(), envID).Environment(environment).Execute()
+	apiResp, http, err := api_client.ManagementAPIsEnvironmentsApi.UpdateEnvironment(context.Background(), envID).Environment(environment).Execute()
 	if err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsEnvironmentsApi.UpdateEnvironment``: %v", err),
-			Detail:   fmt.Sprintf("Full HTTP response: %v\n", r.Body),
-		})
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("Error when calling `ManagementAPIsEnvironmentsApi.UpdateEnvironment``: %v", err),
+			fmt.Sprintf("Full HTTP response: %v\n", http.Body),
+		)
 
-		return diags
+		return
 	}
 
-	if products, ok := d.GetOk("product"); ok {
-		productBOMItems := buildBOMProductsCreateRequest(products.(*schema.Set).List())
+	productBOMItems := buildBOMProductsCreateRequest(plan.Products)
 
-		billOfMaterials := *pingone.NewBillOfMaterials() // Environment |  (optional)
-		billOfMaterials.SetProducts(productBOMItems)
+	billOfMaterials := *pingone.NewBillOfMaterials() // Environment |  (optional)
+	billOfMaterials.SetProducts(productBOMItems)
 
-		_, r, err := api_client.ManagementAPIsBillOfMaterialsBOMApi.UpdateBillOfMaterials(context.Background(), envID).BillOfMaterials(billOfMaterials).Execute()
-		if err != nil {
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  fmt.Sprintf("Error when calling `ManagementAPIsBillOfMaterialsBOMApi.UpdateBillOfMaterials``: %v", err),
-				Detail:   fmt.Sprintf("Full HTTP response: %v\n", r.Body),
-			})
+	bomResp, bomHttp, bomErr := api_client.ManagementAPIsBillOfMaterialsBOMApi.UpdateBillOfMaterials(context.Background(), envID).BillOfMaterials(billOfMaterials).Execute()
+	if bomErr != nil {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("Error when calling `ManagementAPIsBillOfMaterialsBOMApi.UpdateBillOfMaterials``: %v", bomErr),
+			fmt.Sprintf("Full HTTP response: %v\n", bomHttp.Body),
+		)
 
-			return diags
-		}
+		return
 	}
 
-	if change := d.HasChange("default_population_name") || d.HasChange("default_population_description"); change {
-
-		popName := d.Get("default_population_name").(string)
-		popDescription := d.Get("default_population_description").(string)
+	populationUpdate := *pingone.NewPopulation()
+	if change := (plan.DefaultPopulation.Name.Value != state.DefaultPopulation.Name.Value) || (plan.DefaultPopulation.Description.Value != state.DefaultPopulation.Description.Value); change {
 
 		population := *pingone.NewPopulation() // Population |  (optional)
-		population.SetName(popName)
-		population.SetDescription(popDescription)
+		population.SetName(plan.DefaultPopulation.Name.Value)
+		population.SetDescription(plan.DefaultPopulation.Description.Value)
 
-		_, r, err := api_client.ManagementAPIsPopulationsApi.UpdatePopulation(context.Background(), envID, populationID).Population(population).Execute()
+		popResp, http, err := api_client.ManagementAPIsPopulationsApi.UpdatePopulation(context.Background(), envID, populationID).Population(population).Execute()
 		if err != nil {
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  fmt.Sprintf("Error when calling `ManagementAPIsPopulationsApi.UpdatePopulation``: %v", err),
-				Detail:   fmt.Sprintf("Full HTTP response: %v\n", r.Body),
-			})
+			resp.Diagnostics.AddError(
+				fmt.Sprintf("Error when calling `ManagementAPIsPopulationsApi.UpdatePopulation``: %v", err),
+				fmt.Sprintf("Full HTTP response: %v\n", http.Body),
+			)
 
-			return diags
+			return
 		}
 
+		log.Printf("Population updated: %s", popResp.GetId())
+
+		populationUpdate.SetId(popResp.GetId())
+		populationUpdate.SetName(popResp.GetName())
+		populationUpdate.SetDescription(popResp.GetDescription())
+
+	} else {
+		populationUpdate.SetId(state.DefaultPopulation.ID.Value)
+		populationUpdate.SetName(state.DefaultPopulation.Name.Value)
+		populationUpdate.SetDescription(state.DefaultPopulation.Description.Value)
 	}
 
-	return resourceEnvironmentRead(ctx, d, meta)
+	// Generate resource state struct
+	var result = Environment{
+		ID:          types.String{Value: apiResp.GetId()},
+		Name:        types.String{Value: apiResp.GetName()},
+		Description: types.String{Value: apiResp.GetDescription()},
+		Type:        types.String{Value: apiResp.GetType()},
+		Region:      types.String{Value: apiResp.GetRegion()},
+		LicenseID:   types.String{Value: *apiResp.GetLicense().Id},
+		Products:    flattenBOMProducts(bomResp),
+		DefaultPopulation: Population{
+			ID:          types.String{Value: populationUpdate.GetId()},
+			Name:        types.String{Value: populationUpdate.GetName()},
+			Description: types.String{Value: populationUpdate.GetDescription()},
+		},
+	}
+
+	diags = resp.State.Set(ctx, result)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 }
 
-func resourceEnvironmentDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	api_client := meta.(*pingone.APIClient)
-	var diags diag.Diagnostics
+func (r resourceEnvironment) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+	api_client := r.p.client
 
-	attributes := strings.SplitN(d.Id(), "/", 2)
-	envID := attributes[0]
+	var state Environment
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	envID := state.ID.Value
 
 	_, err := api_client.ManagementAPIsEnvironmentsApi.DeleteEnvironment(context.Background(), envID).Execute()
 	if err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsEnvironmentsApi.DeleteEnvironment``: %v", err),
-		})
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("Error when calling `ManagementAPIsEnvironmentsApi.DeleteEnvironment``: %v", err),
+			"",
+		)
 
-		return diags
+		return
 	}
 
-	return nil
+	// Remove resource from state
+	resp.State.RemoveResource(ctx)
 }
 
-func resourceEnvironmentImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
-	attributes := strings.SplitN(d.Id(), "/", 2)
+func (r resourceEnvironment) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
+	api_client := r.p.client
+
+	attributes := strings.SplitN(req.ID, "/", 2)
 
 	if len(attributes) != 2 {
-		return nil, fmt.Errorf("invalid id (\"%s\") specified, should be in format \"envID/populationID\"", d.Id())
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("invalid id (\"%s\") specified, should be in format \"envID/populationID\"", req.ID),
+			"",
+		)
+
+		return
 	}
 
 	envID, populationID := attributes[0], attributes[1]
 
-	d.Set("environment_id", envID)
-	d.SetId(fmt.Sprintf("%s/%s", envID, populationID))
+	apiResp, http, err := api_client.ManagementAPIsEnvironmentsApi.ReadOneEnvironment(context.Background(), envID).Execute()
+	if err != nil {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("Error when calling `ManagementAPIsEnvironmentsApi.ReadOneEnvironment``: %v", err),
+			fmt.Sprintf("Full HTTP response: %v\n", http.Body),
+		)
 
-	resourceGroupRead(ctx, d, meta)
+		return
+	}
 
-	return []*schema.ResourceData{d}, nil
+	bomResp, rBOM, errBOM := api_client.ManagementAPIsBillOfMaterialsBOMApi.ReadOneBillOfMaterials(context.Background(), envID).Execute()
+	if errBOM != nil {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("Error when calling `ManagementAPIsEnvironmentsApi.ReadOneEnvironment``: %v", errBOM),
+			fmt.Sprintf("Full HTTP response: %v\n", rBOM),
+		)
+
+		return
+	}
+
+	popResp, popR, popErr := api_client.ManagementAPIsPopulationsApi.ReadOnePopulation(context.Background(), envID, populationID).Execute()
+	if popErr != nil {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("Error when calling `ManagementAPIsPopulationsApi.ReadOnePopulation``: %v", popErr),
+			fmt.Sprintf("Full HTTP response: %v\n", popR.Body),
+		)
+
+		return
+	}
+
+	// Generate resource state struct
+	var result = Environment{
+		ID:          types.String{Value: apiResp.GetId()},
+		Name:        types.String{Value: apiResp.GetName()},
+		Description: types.String{Value: apiResp.GetDescription()},
+		Type:        types.String{Value: apiResp.GetType()},
+		Region:      types.String{Value: apiResp.GetRegion()},
+		LicenseID:   types.String{Value: *apiResp.GetLicense().Id},
+		Products:    flattenBOMProducts(bomResp),
+		DefaultPopulation: Population{
+			ID:          types.String{Value: popResp.GetId()},
+			Name:        types.String{Value: popResp.GetName()},
+			Description: types.String{Value: popResp.GetDescription()},
+		},
+	}
+
+	resp.State.Set(ctx, result)
+
 }
 
-func buildBOMProductsCreateRequest(items []interface{}) []pingone.BillOfMaterialsProducts {
+func buildBOMProductsCreateRequest(items []Product) []pingone.BillOfMaterialsProducts {
 	var productBOMItems []pingone.BillOfMaterialsProducts
 
 	for _, item := range items {
 
 		productBOM := pingone.NewBillOfMaterialsProducts()
-		productBOM.SetType(item.(map[string]interface{})["type"].(string))
+		productBOM.SetType(item.Type.Value)
 
-		log.Printf("console href %t", (item.(map[string]interface{})["console_href"] != nil) && (item.(map[string]interface{})["console_href"] != ""))
-
-		if (item.(map[string]interface{})["console_href"] != nil) && (item.(map[string]interface{})["console_href"] != "") {
+		if !item.ConsoleHref.Null {
 			productBOMItemConsole := pingone.NewBillOfMaterialsConsole()
-			productBOMItemConsole.SetHref(item.(map[string]interface{})["console_href"].(string))
+			productBOMItemConsole.SetHref(item.ConsoleHref.Value)
 
 			productBOM.SetConsole(*productBOMItemConsole)
 		}
 
 		var productBOMBookmarkItems []pingone.BillOfMaterialsBookmarks
 
-		for _, bookmarkItem := range item.(map[string]interface{})["bookmark"].(*schema.Set).List() {
+		for _, bookmarkItem := range item.Bookmarks {
 
 			productBOMBookmark := pingone.NewBillOfMaterialsBookmarks()
-			productBOMBookmark.SetName(bookmarkItem.(map[string]interface{})["name"].(string))
-			productBOMBookmark.SetHref(bookmarkItem.(map[string]interface{})["href"].(string))
+			productBOMBookmark.SetName(bookmarkItem.Name.Value)
+			productBOMBookmark.SetHref(bookmarkItem.Href.Value)
 
 			productBOMBookmarkItems = append(productBOMBookmarkItems, *productBOMBookmark)
 		}
@@ -408,28 +535,29 @@ func buildBOMProductsCreateRequest(items []interface{}) []pingone.BillOfMaterial
 	return productBOMItems
 }
 
-func flattenBOMProducts(items pingone.BillOfMaterials) *schema.Set {
-	productItems := make([]interface{}, 0)
+func flattenBOMProducts(items pingone.BillOfMaterials) []Product {
+	var productItems []Product
 
 	if _, ok := items.GetProductsOk(); ok {
 
 		for _, product := range items.GetProducts() {
 
-			productItems = append(productItems, map[string]interface{}{
-				"type":         product.GetType(),
-				"console_href": product.Console.GetHref(),
-				"bookmark":     flattenBOMProductsBookmarkList(product.GetBookmarks()),
+			_, consoleHrefOk := product.Console.GetHrefOk()
+			productItems = append(productItems, Product{
+				Type:        types.String{Value: product.GetType()},
+				ConsoleHref: types.String{Value: product.Console.GetHref(), Null: !consoleHrefOk},
+				Bookmarks:   flattenBOMProductsBookmarkList(product.GetBookmarks()),
 			})
 
 		}
 
 	}
 
-	return schema.NewSet(HashByMapKey("type"), productItems)
+	return productItems
 }
 
-func flattenBOMProductsBookmarkList(bookmarkList []pingone.BillOfMaterialsBookmarks) *schema.Set {
-	bookmarkItems := make([]interface{}, 0, len(bookmarkList))
+func flattenBOMProductsBookmarkList(bookmarkList []pingone.BillOfMaterialsBookmarks) []ProductBookmark {
+	var bookmarkItems []ProductBookmark
 	for _, bookmark := range bookmarkList {
 
 		bookmarkName := ""
@@ -441,10 +569,10 @@ func flattenBOMProductsBookmarkList(bookmarkList []pingone.BillOfMaterialsBookma
 			bookmarkHref = bookmark.GetHref()
 		}
 
-		bookmarkItems = append(bookmarkItems, map[string]interface{}{
-			"name": bookmarkName,
-			"href": bookmarkHref,
+		bookmarkItems = append(bookmarkItems, ProductBookmark{
+			Name: types.String{Value: bookmarkName},
+			Href: types.String{Value: bookmarkHref},
 		})
 	}
-	return schema.NewSet(HashByMapKey("name"), bookmarkItems)
+	return bookmarkItems
 }

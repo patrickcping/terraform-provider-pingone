@@ -1,16 +1,14 @@
 package main
 
 import (
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
-
+	"context"
 	"terraform-provider-pingone/pingone"
+
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 )
 
 func main() {
-	plugin.Serve(&plugin.ServeOpts{
-		ProviderFunc: func() *schema.Provider {
-			return pingone.Provider()
-		},
+	tfsdk.Serve(context.Background(), pingone.New, tfsdk.ServeOpts{
+		Name: "pingone",
 	})
 }
