@@ -61,7 +61,8 @@ First, build and install the provider.
 make build
 ```
 
-Set the required provider setup variables.  Note that the client details used must have the `` role in the PingOne organisation
+Set the required provider setup variables.  This requires a trial or licensed PingOne instance with a `client credentials` admin client created with `Client Secret Basic` authentication.
+Note that the admin client used must have the `ORGANIZATION ADMIN` role in the PingOne organisation to create environments and ideally the `ENVIRONMENT_ADMIN` role scoped to the organisation to be able to create resources in the newly created environment
 
 ```shell
 export TF_VAR_p1_adminClientId=$YOUR_ADMIN_CLIENT_ID
