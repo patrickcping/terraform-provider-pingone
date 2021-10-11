@@ -250,6 +250,8 @@ github.com/patrickcping/pingone-go v0.0.0-20210930153215-d009c407a8a7 h1:OrThHmn
 github.com/patrickcping/pingone-go v0.0.0-20210930153215-d009c407a8a7/go.mod h1:EJT4PzgsP6+iwZ4HPrF8hjgmdEzZtjq3NaR9VC81htM=
 github.com/patrickcping/pingone-go v0.0.0-20211006075950-f2598c792216 h1:m11FVkftxAKU+61PGJVnX3LpsmlrKKDChoR7p4cSgtQ=
 github.com/patrickcping/pingone-go v0.0.0-20211006075950-f2598c792216/go.mod h1:EJT4PzgsP6+iwZ4HPrF8hjgmdEzZtjq3NaR9VC81htM=
+github.com/patrickcping/pingone-go v0.0.0-20211011140641-23d6727fc9fe h1:XaUmVWRhgBLzqvQ8ny/fyqRqRyC+k0+VQGUkqLeBEOs=
+github.com/patrickcping/pingone-go v0.0.0-20211011140641-23d6727fc9fe/go.mod h1:EJT4PzgsP6+iwZ4HPrF8hjgmdEzZtjq3NaR9VC81htM=
 github.com/pierrec/lz4 v2.0.5+incompatible/go.mod h1:pdkljMzZIN41W+lC3N2tnIh5sFi+IEE17M5jbnwPHcY=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=

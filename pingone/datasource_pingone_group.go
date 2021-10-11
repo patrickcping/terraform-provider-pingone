@@ -51,7 +51,9 @@ func datasourceGroup() *schema.Resource {
 func datasourceGroupRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*p1Client)
 	api_client := p1Client.APIClient
-	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
+	ctx = context.WithValue(ctx, pingone.ContextServerVariables, map[string]string{
+		"suffix": p1Client.regionSuffix,
+	})
 	var diags diag.Diagnostics
 
 	envID := d.Get("environment_id").(string)

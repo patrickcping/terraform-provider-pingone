@@ -18,8 +18,8 @@ type p1ClientConfig struct {
 }
 
 type p1Client struct {
-	APIClient      *pingone.APIClient
-	regionUrlIndex int
+	APIClient    *pingone.APIClient
+	regionSuffix string
 }
 
 func (c *p1ClientConfig) ApiClient(ctx context.Context) (*p1Client, error) {
@@ -35,32 +35,25 @@ func (c *p1ClientConfig) ApiClient(ctx context.Context) (*p1Client, error) {
 	clientcfg.AddDefaultHeader("Authorization", fmt.Sprintf("Bearer %s", token.AccessToken))
 	client = pingone.NewAPIClient(clientcfg)
 
-	apiUrl := "https://api.pingone"
+	var regionSuffix string
 	switch p1Region := c.Region; p1Region {
 	case "EU":
-		apiUrl = fmt.Sprintf("%s.eu", apiUrl)
+		regionSuffix = "eu"
 	case "US":
-		apiUrl = fmt.Sprintf("%s.com", apiUrl)
+		regionSuffix = "com"
 	case "ASIA":
-		apiUrl = fmt.Sprintf("%s.asia", apiUrl)
+		regionSuffix = "asia"
 	case "CA":
-		apiUrl = fmt.Sprintf("%s.ca", apiUrl)
+		regionSuffix = "ca"
 	default:
-		apiUrl = fmt.Sprintf("%s.com", apiUrl)
+		regionSuffix = "com"
 	}
 
-	var regionUrlIndex int
-	for p, v := range clientcfg.Servers {
-		if v.URL == apiUrl {
-			regionUrlIndex = p
-		}
-	}
-
-	log.Printf("[INFO] PingOne Client using region index %d", regionUrlIndex)
+	log.Printf("[INFO] PingOne Client using region suffix %s", regionSuffix)
 
 	apiClient := &p1Client{
-		APIClient:      client,
-		regionUrlIndex: regionUrlIndex,
+		APIClient:    client,
+		regionSuffix: regionSuffix,
 	}
 
 	log.Printf("[INFO] PingOne Client configured")

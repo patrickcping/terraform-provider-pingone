@@ -43,7 +43,9 @@ func resourcePopulation() *schema.Resource {
 func resourcePopulationCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*p1Client)
 	api_client := p1Client.APIClient
-	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
+	ctx = context.WithValue(ctx, pingone.ContextServerVariables, map[string]string{
+		"suffix": p1Client.regionSuffix,
+	})
 	var diags diag.Diagnostics
 
 	envID := d.Get("environment_id").(string)
@@ -75,7 +77,9 @@ func resourcePopulationCreate(ctx context.Context, d *schema.ResourceData, meta 
 func resourcePopulationRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*p1Client)
 	api_client := p1Client.APIClient
-	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
+	ctx = context.WithValue(ctx, pingone.ContextServerVariables, map[string]string{
+		"suffix": p1Client.regionSuffix,
+	})
 	var diags diag.Diagnostics
 
 	popID := d.Id()
@@ -101,7 +105,9 @@ func resourcePopulationRead(ctx context.Context, d *schema.ResourceData, meta in
 func resourcePopulationUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*p1Client)
 	api_client := p1Client.APIClient
-	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
+	ctx = context.WithValue(ctx, pingone.ContextServerVariables, map[string]string{
+		"suffix": p1Client.regionSuffix,
+	})
 	var diags diag.Diagnostics
 
 	envID := d.Get("environment_id").(string)
@@ -131,7 +137,9 @@ func resourcePopulationUpdate(ctx context.Context, d *schema.ResourceData, meta 
 func resourcePopulationDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*p1Client)
 	api_client := p1Client.APIClient
-	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
+	ctx = context.WithValue(ctx, pingone.ContextServerVariables, map[string]string{
+		"suffix": p1Client.regionSuffix,
+	})
 	var diags diag.Diagnostics
 
 	envID := d.Get("environment_id").(string)

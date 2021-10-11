@@ -108,7 +108,9 @@ var billOfMaterialsProductElem = &schema.Resource{
 func resourceEnvironmentCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*p1Client)
 	api_client := p1Client.APIClient
-	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
+	ctx = context.WithValue(ctx, pingone.ContextServerVariables, map[string]string{
+		"suffix": p1Client.regionSuffix,
+	})
 
 	var diags diag.Diagnostics
 
@@ -189,7 +191,9 @@ func resourceEnvironmentCreate(ctx context.Context, d *schema.ResourceData, meta
 func resourceEnvironmentRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*p1Client)
 	api_client := p1Client.APIClient
-	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
+	ctx = context.WithValue(ctx, pingone.ContextServerVariables, map[string]string{
+		"suffix": p1Client.regionSuffix,
+	})
 	var diags diag.Diagnostics
 
 	attributes := strings.SplitN(d.Id(), "/", 2)
@@ -249,7 +253,9 @@ func resourceEnvironmentRead(ctx context.Context, d *schema.ResourceData, meta i
 func resourceEnvironmentUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*p1Client)
 	api_client := p1Client.APIClient
-	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
+	ctx = context.WithValue(ctx, pingone.ContextServerVariables, map[string]string{
+		"suffix": p1Client.regionSuffix,
+	})
 	var diags diag.Diagnostics
 
 	attributes := strings.SplitN(d.Id(), "/", 2)
@@ -345,7 +351,9 @@ func resourceEnvironmentUpdate(ctx context.Context, d *schema.ResourceData, meta
 func resourceEnvironmentDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*p1Client)
 	api_client := p1Client.APIClient
-	ctx = context.WithValue(ctx, pingone.ContextServerIndex, p1Client.regionUrlIndex)
+	ctx = context.WithValue(ctx, pingone.ContextServerVariables, map[string]string{
+		"suffix": p1Client.regionSuffix,
+	})
 	var diags diag.Diagnostics
 
 	attributes := strings.SplitN(d.Id(), "/", 2)
