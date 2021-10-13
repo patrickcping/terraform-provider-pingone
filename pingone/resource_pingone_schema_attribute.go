@@ -1,6 +1,5 @@
 package pingone
 
-//https://learn.hashicorp.com/tutorials/terraform/provider-setup?in=terraform/providers
 import (
 	"context"
 	"fmt"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/patrickcping/pingone-go"
 )
 
@@ -51,10 +51,11 @@ func resourceSchemaAttribute() *schema.Resource {
 				Default:  true,
 			},
 			"type": {
-				Type:     schema.TypeString,
-				Optional: true,
-				ForceNew: true,
-				Default:  "STRING",
+				Type:         schema.TypeString,
+				Optional:     true,
+				ForceNew:     true,
+				Default:      "STRING",
+				ValidateFunc: validation.StringInSlice([]string{"STRING", "JSON", "BOOLEAN", "COMPLEX"}, false),
 			},
 			"unique": {
 				Type:     schema.TypeBool,

@@ -1,6 +1,5 @@
 package pingone
 
-//https://learn.hashicorp.com/tutorials/terraform/provider-setup?in=terraform/providers
 import (
 	"context"
 	"fmt"

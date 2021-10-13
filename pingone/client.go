@@ -26,15 +26,6 @@ func (c *p1ClientConfig) ApiClient(ctx context.Context) (*p1Client, error) {
 	// var err error
 	var client *pingone.APIClient
 
-	token, err := getToken(ctx, c)
-	if err != nil {
-		return nil, err
-	}
-
-	clientcfg := pingone.NewConfiguration()
-	clientcfg.AddDefaultHeader("Authorization", fmt.Sprintf("Bearer %s", token.AccessToken))
-	client = pingone.NewAPIClient(clientcfg)
-
 	var regionSuffix string
 	switch p1Region := c.Region; p1Region {
 	case "EU":
@@ -49,6 +40,15 @@ func (c *p1ClientConfig) ApiClient(ctx context.Context) (*p1Client, error) {
 		regionSuffix = "com"
 	}
 
+	token, err := getToken(ctx, c, regionSuffix)
+	if err != nil {
+		return nil, err
+	}
+
+	clientcfg := pingone.NewConfiguration()
+	clientcfg.AddDefaultHeader("Authorization", fmt.Sprintf("Bearer %s", token.AccessToken))
+	client = pingone.NewAPIClient(clientcfg)
+
 	log.Printf("[INFO] PingOne Client using region suffix %s", regionSuffix)
 
 	apiClient := &p1Client{
@@ -60,23 +60,10 @@ func (c *p1ClientConfig) ApiClient(ctx context.Context) (*p1Client, error) {
 	return apiClient, nil
 }
 
-func getToken(ctx context.Context, c *p1ClientConfig) (*oauth2.Token, error) {
+func getToken(ctx context.Context, c *p1ClientConfig, regionSuffix string) (*oauth2.Token, error) {
 
 	//Get URL from SDK
-	authUrl := "https://auth.pingone"
-	switch p1Region := c.Region; p1Region {
-	case "EU":
-		authUrl = fmt.Sprintf("%s.eu", authUrl)
-	case "US":
-		authUrl = fmt.Sprintf("%s.com", authUrl)
-	case "ASIA":
-		authUrl = fmt.Sprintf("%s.asia", authUrl)
-	case "CA":
-		authUrl = fmt.Sprintf("%s.ca", authUrl)
-	default:
-		authUrl = fmt.Sprintf("%s.com", authUrl)
-	}
-
+	authUrl := fmt.Sprintf("https://auth.pingone.%s", regionSuffix)
 	log.Printf("[INFO] Getting token from %s", authUrl)
 
 	//OAuth 2.0 config for client creds
