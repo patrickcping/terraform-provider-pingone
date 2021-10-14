@@ -10,12 +10,16 @@ import (
 	"github.com/patrickcping/pingone-go"
 )
 
-func datasourceEnvironment() *schema.Resource {
+func datasourceResource() *schema.Resource {
 	return &schema.Resource{
-		ReadContext: datasourceEnvironmentRead,
+		ReadContext: datasourceResourceRead,
 
 		Schema: map[string]*schema.Schema{
 			"environment_id": {
+				Type:     schema.TypeString,
+				Required: true,
+			},
+			"resource_id": {
 				Type:     schema.TypeString,
 				Optional: true,
 			},
@@ -31,19 +35,19 @@ func datasourceEnvironment() *schema.Resource {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"region": {
+			"audience": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
-			"license_id": {
-				Type:     schema.TypeString,
+			"access_token_validity_seconds": {
+				Type:     schema.TypeInt,
 				Computed: true,
 			},
 		},
 	}
 }
 
-func datasourceEnvironmentRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func datasourceResourceRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*p1Client)
 	api_client := p1Client.APIClient
 	ctx = context.WithValue(ctx, pingone.ContextServerVariables, map[string]string{
@@ -52,49 +56,52 @@ func datasourceEnvironmentRead(ctx context.Context, d *schema.ResourceData, meta
 	var diags diag.Diagnostics
 
 	envID := d.Get("environment_id").(string)
-	envName := d.Get("name").(string)
+	resourceID := d.Get("resource_id").(string)
+	resourceName := d.Get("name").(string)
 
-	var resp pingone.Environment
-	if envName != "" {
+	var resp pingone.Resource
+	if resourceName != "" {
 
-		limit := int32(1000)
-		filter := fmt.Sprintf("name sw \"%s\"", envName) // need the eq filter
-		respList, r, err := api_client.ManagementAPIsEnvironmentsApi.ReadAllEnvironments(ctx).Limit(limit).Filter(filter).Execute()
+		respList, r, err := api_client.ManagementAPIsResourcesResourcesApi.ReadAllResources(ctx, envID).Execute()
 		if err != nil {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
-				Summary:  fmt.Sprintf("Error when calling `ManagementAPIsEnvironmentsApi.ReadAllEnvironments``: %v", err),
+				Summary:  fmt.Sprintf("Error when calling `ManagementAPIsResourcesResourcesApi.ReadAllResources``: %v", err),
 				Detail:   fmt.Sprintf("Full HTTP response: %v\n", r.Body),
 			})
 
 			return diags
 		}
 
-		resp = respList.Embedded.GetEnvironments()[0]
-		log.Printf("Environment found %s", resp.Name)
+		for _, v := range respList.Embedded.GetResources() {
+			if v.GetName() == resourceName {
+				resp = v
+				log.Printf("Resource found %s", resp.GetName())
+			}
+		}
 
 	} else {
 
-		resp, r, err := api_client.ManagementAPIsEnvironmentsApi.ReadOneEnvironment(ctx, envID).Execute()
+		resp, r, err := api_client.ManagementAPIsResourcesResourcesApi.ReadOneResource(ctx, envID, resourceID).Execute()
 		if err != nil {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
-				Summary:  fmt.Sprintf("Error when calling `ManagementAPIsEnvironmentsApi.ReadOneEnvironment``: %v", err),
+				Summary:  fmt.Sprintf("Error when calling `ManagementAPIsResourcesResourcesApi.ReadOneResource``: %v", err),
 				Detail:   fmt.Sprintf("Full HTTP response: %v\n", r.Body),
 			})
 
 			return diags
 		}
-		log.Printf("Environment found %s", resp.Name)
+		log.Printf("Resource found %s", resp.GetName())
 	}
 
 	d.SetId(resp.GetId())
-	d.Set("environment_id", resp.GetId())
+	d.Set("resource_id", resp.GetId())
 	d.Set("name", resp.GetName())
 	d.Set("description", resp.GetDescription())
 	d.Set("type", resp.GetType())
-	d.Set("region", resp.GetRegion())
-	d.Set("license_id", resp.GetLicense().Id)
+	d.Set("audience", resp.GetAudience())
+	d.Set("access_token_validity_seconds", resp.GetAccessTokenValiditySeconds())
 
 	return diags
 }

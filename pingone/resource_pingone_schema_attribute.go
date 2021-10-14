@@ -107,12 +107,9 @@ func resourceSchemaAttributeCreate(ctx context.Context, d *schema.ResourceData, 
 
 	log.Printf("[INFO] Creating PingOne Schema Attribute: name %s", attributeName)
 
-	schemaAttribute := *pingone.NewSchemaAttribute() // SchemaAttribute |  (optional)
-	schemaAttribute.SetName(attributeName)
+	schemaAttribute := *pingone.NewSchemaAttribute(enabled, attributeName, attributeType) // SchemaAttribute |  (optional)
 	schemaAttribute.SetDisplayName(displayName)
 	schemaAttribute.SetDescription(description)
-	schemaAttribute.SetEnabled(enabled)
-	schemaAttribute.SetType(attributeType)
 	schemaAttribute.SetUnique(unique)
 	schemaAttribute.SetMultiValued(multivalued)
 	schemaAttribute.SetRequired(required)
@@ -193,12 +190,9 @@ func resourceSchemaAttributeUpdate(ctx context.Context, d *schema.ResourceData, 
 
 	log.Printf("[INFO] Updating PingOne Schema Attribute: name %s", attributeName)
 
-	schemaAttribute := *pingone.NewSchemaAttribute() // SchemaAttribute |  (optional)
-	schemaAttribute.SetName(attributeName)
+	schemaAttribute := *pingone.NewSchemaAttribute(enabled, attributeName, attributeType) // SchemaAttribute |  (optional)
 	schemaAttribute.SetDisplayName(displayName)
 	schemaAttribute.SetDescription(description)
-	schemaAttribute.SetEnabled(enabled)
-	schemaAttribute.SetType(attributeType)
 	schemaAttribute.SetUnique(unique)
 	schemaAttribute.SetMultiValued(multivalued)
 	schemaAttribute.SetRequired(required)

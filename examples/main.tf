@@ -144,3 +144,87 @@ resource "pingone_schema_attribute" "test_attribute" {
   required = false
   
 }
+
+### Application
+resource "pingone_application_oidc" "oidc_web_app" {
+  environment_id = pingone_environment.test.environment_id
+
+  name = "Test App 1"
+  description = "Test app 1 description"
+  enabled = true
+
+  type = "WEB_APP"
+  grant_types = ["AUTHORIZATION_CODE"]
+  response_types = ["CODE"]
+  token_endpoint_authn_method = "CLIENT_SECRET_BASIC"
+
+  redirect_uris = ["https://localhost"]
+
+  access_control {
+    group {
+      type = "ANY_GROUP"
+      groups = [pingone_group.test_group.id]
+    }
+  }
+
+}
+
+data "pingone_application_oidc_secret" "oidc_web_app_secret" {
+  environment_id = pingone_environment.test.environment_id
+  application_id = pingone_application_oidc.oidc_web_app.id
+}
+
+resource "pingone_application_oidc" "worker_app" {
+  environment_id = pingone_environment.test.environment_id
+
+  name = "Test App 2"
+  description = "Test app 2 description"
+  enabled = true
+
+  type = "WORKER"
+  grant_types = ["CLIENT_CREDENTIALS"]
+  token_endpoint_authn_method = "CLIENT_SECRET_BASIC"
+
+}
+
+data "pingone_resource" "openid_resource" {
+  environment_id = pingone_environment.test.environment_id
+
+  name = "openid"
+}
+
+data "pingone_resource_scope" "openid_profile" {
+  environment_id = pingone_environment.test.environment_id
+  resource_id = data.pingone_resource.openid_resource.id
+
+  name = "profile"
+
+}
+
+data "pingone_resource_scope" "openid_email" {
+  environment_id = pingone_environment.test.environment_id
+  resource_id = data.pingone_resource.openid_resource.id
+
+  name = "email"
+
+}
+
+resource "pingone_application_resource_grant" "oidc_web_app" {
+  environment_id = pingone_environment.test.environment_id
+  application_id = pingone_application_oidc.oidc_web_app.id
+
+  resource_id = data.pingone_resource.openid_resource.id
+  scopes = [
+    data.pingone_resource_scope.openid_profile.id,
+    data.pingone_resource_scope.openid_email.id
+  ]
+}
+
+resource "pingone_application_attribute_mapping" "username" {
+  environment_id = pingone_environment.test.environment_id
+  application_id = pingone_application_oidc.oidc_web_app.id
+
+  name = "test"
+  value = "$${user.email}"
+  required = false
+}

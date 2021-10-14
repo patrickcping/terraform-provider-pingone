@@ -120,17 +120,13 @@ func resourceEnvironmentCreate(ctx context.Context, d *schema.ResourceData, meta
 
 	log.Printf("[INFO] Creating PingOne Environment: name %s, type %s", envName, envType)
 
-	environmentLicense := *pingone.NewEnvironmentLicense()
+	var environmentLicense pingone.EnvironmentLicense
 	if license, ok := d.GetOk("license_id"); ok {
-		environmentLicense.SetId(license.(string))
+		environmentLicense = *pingone.NewEnvironmentLicense(license.(string))
 	}
 
-	environment := *pingone.NewEnvironment() // Environment |  (optional)
-	environment.SetName(envName)
+	environment := *pingone.NewEnvironment(environmentLicense, envName, envRegion, envType) // Environment |  (optional)
 	environment.SetDescription(envDescription)
-	environment.SetType(envType)
-	environment.SetRegion(envRegion)
-	environment.SetLicense(environmentLicense)
 
 	resp, r, err := api_client.ManagementAPIsEnvironmentsApi.CreateEnvironmentActiveLicense(ctx).Environment(environment).Execute()
 	if (err != nil) && (r.StatusCode != 201) {
@@ -167,8 +163,7 @@ func resourceEnvironmentCreate(ctx context.Context, d *schema.ResourceData, meta
 
 	log.Printf("[INFO] Creating PingOne Default Population: name %s", popName)
 
-	population := *pingone.NewPopulation() // Population |  (optional)
-	population.SetName(popName)
+	population := *pingone.NewPopulation(popName) // Population |  (optional)
 	population.SetDescription(popDescription)
 
 	popResp, popR, popErr := api_client.ManagementAPIsPopulationsApi.CreatePopulation(ctx, resp.GetId()).Population(population).Execute()
@@ -264,17 +259,13 @@ func resourceEnvironmentUpdate(ctx context.Context, d *schema.ResourceData, meta
 	envType := d.Get("type").(string)
 	envRegion := d.Get("region").(string)
 
-	environmentLicense := *pingone.NewEnvironmentLicense()
+	var environmentLicense pingone.EnvironmentLicense
 	if license, ok := d.GetOk("license_id"); ok {
-		environmentLicense.SetId(license.(string))
+		environmentLicense = *pingone.NewEnvironmentLicense(license.(string))
 	}
 
-	environment := *pingone.NewEnvironment() // Environment |  (optional)
-	environment.SetName(envName)
+	environment := *pingone.NewEnvironment(environmentLicense, envName, envRegion, envType) // Environment |  (optional)
 	environment.SetDescription(envDescription)
-	environment.SetType(envType)
-	environment.SetRegion(envRegion)
-	environment.SetLicense(environmentLicense)
 
 	if change := d.HasChange("type"); change {
 		//If type has changed from SANDBOX -> PRODUCTION and vice versa we need a separate API call
@@ -327,8 +318,7 @@ func resourceEnvironmentUpdate(ctx context.Context, d *schema.ResourceData, meta
 		popName := d.Get("default_population_name").(string)
 		popDescription := d.Get("default_population_description").(string)
 
-		population := *pingone.NewPopulation() // Population |  (optional)
-		population.SetName(popName)
+		population := *pingone.NewPopulation(popName) // Population |  (optional)
 		population.SetDescription(popDescription)
 
 		_, r, err := api_client.ManagementAPIsPopulationsApi.UpdatePopulation(ctx, envID, populationID).Population(population).Execute()
@@ -393,14 +383,12 @@ func buildBOMProductsCreateRequest(items []interface{}) []pingone.BillOfMaterial
 
 	for _, item := range items {
 
-		productBOM := pingone.NewBillOfMaterialsProducts()
-		productBOM.SetType(item.(map[string]interface{})["type"].(string))
+		productBOM := pingone.NewBillOfMaterialsProducts(item.(map[string]interface{})["type"].(string))
 
 		log.Printf("console href %t", (item.(map[string]interface{})["console_href"] != nil) && (item.(map[string]interface{})["console_href"] != ""))
 
 		if (item.(map[string]interface{})["console_href"] != nil) && (item.(map[string]interface{})["console_href"] != "") {
-			productBOMItemConsole := pingone.NewBillOfMaterialsConsole()
-			productBOMItemConsole.SetHref(item.(map[string]interface{})["console_href"].(string))
+			productBOMItemConsole := pingone.NewBillOfMaterialsConsole(item.(map[string]interface{})["console_href"].(string))
 
 			productBOM.SetConsole(*productBOMItemConsole)
 		}
@@ -409,9 +397,7 @@ func buildBOMProductsCreateRequest(items []interface{}) []pingone.BillOfMaterial
 
 		for _, bookmarkItem := range item.(map[string]interface{})["bookmark"].(*schema.Set).List() {
 
-			productBOMBookmark := pingone.NewBillOfMaterialsBookmarks()
-			productBOMBookmark.SetName(bookmarkItem.(map[string]interface{})["name"].(string))
-			productBOMBookmark.SetHref(bookmarkItem.(map[string]interface{})["href"].(string))
+			productBOMBookmark := pingone.NewBillOfMaterialsBookmarks(bookmarkItem.(map[string]interface{})["name"].(string), bookmarkItem.(map[string]interface{})["href"].(string))
 
 			productBOMBookmarkItems = append(productBOMBookmarkItems, *productBOMBookmark)
 		}

@@ -72,16 +72,11 @@ func resourceUserRoleAssignmentCreate(ctx context.Context, d *schema.ResourceDat
 
 	log.Printf("[INFO] Creating PingOne User Role Assignment: user %s, env %s", userID, envID)
 
-	userRoleAssignmentRole := *pingone.NewRoleAssignmentRole()
-	userRoleAssignmentRole.SetId(roleID)
+	userRoleAssignmentRole := *pingone.NewRoleAssignmentRole(roleID)
 
-	userRoleAssignmentScope := *pingone.NewRoleAssignmentScope()
-	userRoleAssignmentScope.SetId(scopeID)
-	userRoleAssignmentScope.SetType(scopeType)
+	userRoleAssignmentScope := *pingone.NewRoleAssignmentScope(scopeID, scopeType)
 
-	userRoleAssignment := *pingone.NewRoleAssignment() // UserRoleAssignment |  (optional)
-	userRoleAssignment.SetRole(userRoleAssignmentRole)
-	userRoleAssignment.SetScope(userRoleAssignmentScope)
+	userRoleAssignment := *pingone.NewRoleAssignment(userRoleAssignmentRole, userRoleAssignmentScope) // UserRoleAssignment |  (optional)
 
 	resp, r, err := api_client.ManagementAPIsUsersUserRoleAssignmentsApi.CreateUserRoleAssignment(ctx, envID, userID).RoleAssignment(userRoleAssignment).Execute()
 	if (err != nil) && (r.StatusCode != 201) {

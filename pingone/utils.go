@@ -10,3 +10,12 @@ func HashByMapKey(key string) func(v interface{}) int {
 		return schema.HashString(m[key])
 	}
 }
+
+func marshalInterfaceToString(v []interface{}) []string {
+	w := make([]string, 0)
+	for _, y := range v {
+		w = append(w, y.(string))
+	}
+
+	return w
+}

@@ -53,8 +53,7 @@ func resourcePopulationCreate(ctx context.Context, d *schema.ResourceData, meta 
 
 	log.Printf("[INFO] Creating PingOne Population: name %s", popName)
 
-	population := *pingone.NewPopulation() // Population |  (optional)
-	population.SetName(popName)
+	population := *pingone.NewPopulation(popName) // Population |  (optional)
 	population.SetDescription(popDescription)
 
 	resp, r, err := api_client.ManagementAPIsPopulationsApi.CreatePopulation(ctx, envID).Population(population).Execute()
@@ -115,8 +114,7 @@ func resourcePopulationUpdate(ctx context.Context, d *schema.ResourceData, meta 
 	popName := d.Get("name").(string)
 	popDescription := d.Get("description").(string)
 
-	population := *pingone.NewPopulation() // Population |  (optional)
-	population.SetName(popName)
+	population := *pingone.NewPopulation(popName) // Population |  (optional)
 	population.SetDescription(popDescription)
 
 	_, r, err := api_client.ManagementAPIsPopulationsApi.UpdatePopulation(ctx, envID, popID).Population(population).Execute()

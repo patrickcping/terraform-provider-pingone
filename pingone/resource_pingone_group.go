@@ -69,11 +69,9 @@ func resourceGroupCreate(ctx context.Context, d *schema.ResourceData, meta inter
 
 	log.Printf("[INFO] Creating PingOne Group: name %s", groupName)
 
-	groupPopulation := *pingone.NewGroupPopulation() // NewGroupPopulation |  (optional)
-	groupPopulation.SetId(populationID)
+	groupPopulation := *pingone.NewGroupPopulation(populationID) // NewGroupPopulation |  (optional)
 
-	group := *pingone.NewGroup() // Group |  (optional)
-	group.SetName(groupName)
+	group := *pingone.NewGroup(groupName) // Group |  (optional)
 
 	if populationID != "" {
 		group.SetPopulation(groupPopulation)
@@ -158,11 +156,9 @@ func resourceGroupUpdate(ctx context.Context, d *schema.ResourceData, meta inter
 
 	log.Printf("[INFO] Updating PingOne Group: name %s", groupName)
 
-	groupPopulation := *pingone.NewGroupPopulation() // NewGroupPopulation |  (optional)
-	groupPopulation.SetId(populationID)
+	groupPopulation := *pingone.NewGroupPopulation(populationID) // NewGroupPopulation |  (optional)
 
-	group := *pingone.NewGroup() // Group |  (optional)
-	group.SetName(groupName)
+	group := *pingone.NewGroup(groupName) // Group |  (optional)
 
 	if populationID != "" {
 		group.SetPopulation(groupPopulation)
