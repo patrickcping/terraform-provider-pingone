@@ -195,6 +195,12 @@ func resourceEnvironmentRead(ctx context.Context, d *schema.ResourceData, meta i
 
 	resp, r, err := api_client.ManagementAPIsEnvironmentsApi.ReadOneEnvironment(ctx, envID).Execute()
 	if err != nil {
+
+		if r.StatusCode == 404 {
+			log.Printf("[INFO] PingOne Environment no %s longer exists", d.Id())
+			d.SetId("")
+			return nil
+		}
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsEnvironmentsApi.ReadOneEnvironment``: %v", err),
@@ -228,6 +234,15 @@ func resourceEnvironmentRead(ctx context.Context, d *schema.ResourceData, meta i
 
 	popResp, popR, popErr := api_client.ManagementAPIsPopulationsApi.ReadOnePopulation(ctx, envID, populationID).Execute()
 	if err != nil {
+
+		if r.StatusCode == 404 {
+			log.Printf("[INFO] PingOne Application Default Population no %s longer exists", populationID)
+			d.Set("default_population_id", "")
+			d.Set("default_population_name", "")
+			d.Set("default_population_description", "")
+			return diags
+		}
+
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsPopulationsApi.ReadOnePopulation``: %v", popErr),

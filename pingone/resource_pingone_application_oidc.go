@@ -140,22 +140,13 @@ func resourceApplicationOIDC() *schema.Resource {
 				Optional: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"role": {
-							Type:     schema.TypeList,
-							MaxItems: 1,
-							Optional: true,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"type": {
-										Type:         schema.TypeString,
-										Required:     true,
-										ValidateFunc: validation.StringInSlice([]string{"ADMIN_USERS_ONLY"}, false),
-									},
-								},
-							},
+						"role_type": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							ValidateFunc: validation.StringInSlice([]string{"ADMIN_USERS_ONLY"}, false),
 						},
 						"group": {
-							Type:     schema.TypeList,
+							Type:     schema.TypeSet,
 							MaxItems: 1,
 							Optional: true,
 							Elem: &schema.Resource{
@@ -291,13 +282,41 @@ func resourceApplicationOIDCCreate(ctx context.Context, d *schema.ResourceData, 
 		return diags
 	}
 
-	b, err := json.Marshal(resp)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println(string(b))
+	appID := resp.(map[string]interface{})["id"].(string)
 
-	d.SetId(resp.(map[string]interface{})["id"].(string))
+	// Clear down all the pre-seeded application roles, these should be managed by TF
+	respAR, r, err := api_client.ManagementAPIsApplicationsApplicationRoleAssignmentsApi.ReadApplicationRoleAssignments(ctx, envID, appID).Execute()
+	if err != nil {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Warning,
+			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsApplicationsApplicationRoleAssignmentsApi.ReadApplicationRoleAssignments``: %v", err),
+			Detail:   fmt.Sprintf("Full HTTP response: %v\n", r.Body),
+		})
+	}
+
+	if _, ok := respAR.Embedded.GetRoleAssignmentsOk(); ok {
+
+		for _, roleAssignment := range respAR.Embedded.GetRoleAssignments() {
+
+			if !roleAssignment.GetReadOnly() {
+
+				r, err := api_client.ManagementAPIsApplicationsApplicationRoleAssignmentsApi.DeleteApplicationRoleAssignment(ctx, envID, appID, roleAssignment.GetId()).Execute()
+				if err != nil {
+					log.Printf("Error %v", err)
+					diags = append(diags, diag.Diagnostic{
+						Severity: diag.Warning,
+						Summary:  fmt.Sprintf("Error when calling `ManagementAPIsApplicationsApplicationRoleAssignmentsApi.DeleteApplicationRoleAssignment``: %v", err),
+					})
+				}
+				log.Printf("R: %v\n", r)
+
+			}
+
+		}
+
+	}
+
+	d.SetId(appID)
 
 	return resourceApplicationOIDCRead(ctx, d, meta)
 }
@@ -313,22 +332,30 @@ func resourceApplicationOIDCRead(ctx context.Context, d *schema.ResourceData, me
 	appID := d.Id()
 	envID := d.Get("environment_id").(string)
 
-	respSecret, r, err := api_client.ManagementAPIsApplicationsApplicationSecretApi.ReadApplicationSecret(ctx, envID, appID).Execute()
+	resp, r, err := api_client.ManagementAPIsApplicationsApplicationsApi.ReadOneApplication(ctx, envID, appID).Execute()
 	if err != nil {
+
+		if r.StatusCode == 404 {
+			log.Printf("[INFO] PingOne Application no %s longer exists", d.Id())
+			d.SetId("")
+			return nil
+		}
+
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsApplicationsApplicationSecretApi.ReadApplicationSecret``: %v", err),
+			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsApplicationsApplicationsApi.ReadOneApplication``: %v", err),
 			Detail:   fmt.Sprintf("Full HTTP response: %v\n", r.Body),
 		})
 
 		return diags
 	}
 
-	resp, r, err := api_client.ManagementAPIsApplicationsApplicationsApi.ReadOneApplication(ctx, envID, appID).Execute()
+	respSecret, r, err := api_client.ManagementAPIsApplicationsApplicationSecretApi.ReadApplicationSecret(ctx, envID, appID).Execute()
 	if err != nil {
+
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsApplicationsApplicationsApi.ReadOneApplication``: %v", err),
+			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsApplicationsApplicationSecretApi.ReadApplicationSecret``: %v", err),
 			Detail:   fmt.Sprintf("Full HTTP response: %v\n", r.Body),
 		})
 
@@ -371,8 +398,21 @@ func resourceApplicationOIDCRead(ctx context.Context, d *schema.ResourceData, me
 	d.Set("bundle_id", application.GetBundleId())
 	d.Set("package_name", application.GetPackageName())
 
+	log.Println("Before")
+	b, _ = json.Marshal(application.GetAccessControl())
+	log.Println(string(b))
+
 	if v, ok := application.GetAccessControlOk(); ok {
+		log.Println("Before 2")
+		b, _ = json.Marshal(v)
+		log.Println(string(b))
+
 		accessControlFlattened, err := flattenApplicationAccessControl(v)
+
+		log.Println("After")
+		b, _ = json.Marshal(accessControlFlattened)
+		log.Println(string(b))
+
 		if err != nil {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
@@ -443,6 +483,7 @@ func resourceApplicationOIDCUpdate(ctx context.Context, d *schema.ResourceData, 
 
 	_, r, err := api_client.ManagementAPIsApplicationsApplicationsApi.UpdateApplication(ctx, envID, appID).OneOfApplicationSAMLApplicationOIDC(application).Execute()
 	if err != nil {
+
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsApplicationsApplicationsApi.UpdateApplication``: %v", err),
@@ -501,6 +542,38 @@ func flattenApplicationAccessControl(in *pingone.ApplicationAccessControl) ([]in
 
 	var flattenedApplicationAccessControlRole []interface{}
 	var flattenedApplicationAccessControlGroup []interface{}
+
+	if v, ok := in.GetRoleOk(); ok {
+		if v1, ok := v.GetTypeOk(); ok {
+			flattenedApplicationAccessControlRole = append(flattenedApplicationAccessControlRole, map[string]interface{}{
+				"role_type": v1,
+			})
+		}
+	}
+
+	if v, ok := in.GetGroupOk(); ok {
+
+		var flattenedApplicationAccessControlGroupMap []interface{}
+		if v1, ok := v.GetTypeOk(); ok {
+
+			groupItems := make([]interface{}, 0, len(v.GetGroups()))
+			for _, group := range v.GetGroups() {
+
+				groupItems = append(groupItems, group.GetId())
+			}
+
+			flattenedApplicationAccessControlGroupMap = append(flattenedApplicationAccessControlGroupMap, map[string]interface{}{
+				"type":   v1,
+				"groups": groupItems,
+			})
+
+		}
+
+		flattenedApplicationAccessControlGroup = append(flattenedApplicationAccessControlGroup, map[string]interface{}{
+			"group": flattenedApplicationAccessControlGroupMap,
+		})
+
+	}
 
 	items := make([]interface{}, 0)
 	items = append(items, map[string]interface{}{
@@ -595,9 +668,9 @@ func expandApplicationOIDC(d *schema.ResourceData) (pingone.ApplicationOIDC, err
 
 		accessControlGroupIn := v.(*schema.Set).List()[0].(map[string]interface{})["group"]
 
-		if accessControlGroupIn != nil && len(accessControlGroupIn.([]interface{})) > 0 {
+		if accessControlGroupIn != nil && len(accessControlGroupIn.(*schema.Set).List()) > 0 {
 
-			groupsIn := accessControlGroupIn.([]interface{})[0].(map[string]interface{})["groups"].([]interface{})
+			groupsIn := accessControlGroupIn.(*schema.Set).List()[0].(map[string]interface{})["groups"].([]interface{})
 			groupItems := make([]pingone.ApplicationAccessControlGroupGroups, 0, len(groupsIn))
 			for _, group := range groupsIn {
 				groupItems = append(groupItems, pingone.ApplicationAccessControlGroupGroups{
@@ -606,19 +679,19 @@ func expandApplicationOIDC(d *schema.ResourceData) (pingone.ApplicationOIDC, err
 			}
 
 			accessControlGroup := *pingone.NewApplicationAccessControlGroup(
-				accessControlGroupIn.([]interface{})[0].(map[string]interface{})["type"].(string),
+				accessControlGroupIn.(*schema.Set).List()[0].(map[string]interface{})["type"].(string),
 				groupItems,
 			)
 			accessControl.SetGroup(accessControlGroup)
 
 		}
 
-		accessControlRoleIn := v.(*schema.Set).List()[0].(map[string]interface{})["role"]
+		accessControlRoleIn := v.(*schema.Set).List()[0].(map[string]interface{})["role_type"]
 
-		if accessControlRoleIn != nil && len(accessControlRoleIn.([]interface{})) > 0 {
+		if accessControlRoleIn != nil && accessControlRoleIn != "" {
 
 			accessControlRole := *pingone.NewApplicationAccessControlRole(
-				accessControlRoleIn.([]interface{})[0].(map[string]interface{})["type"].(string),
+				accessControlRoleIn.(string),
 			)
 			accessControl.SetRole(accessControlRole)
 

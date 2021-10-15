@@ -102,6 +102,12 @@ func resourceApplicationResourceGrantRead(ctx context.Context, d *schema.Resourc
 
 	resp, r, err := api_client.ManagementAPIsApplicationsApplicationResourceGrantsApi.ReadOneApplicationGrant(ctx, envID, appID, grantID).Execute()
 	if err != nil {
+
+		if r.StatusCode == 404 {
+			log.Printf("[INFO] PingOne Application Resource Grant %s no longer exists", d.Id())
+			d.SetId("")
+			return nil
+		}
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsApplicationsApplicationResourceGrantsApi.ReadOneApplicationGrant``: %v", err),

@@ -144,6 +144,12 @@ func resourceSchemaAttributeRead(ctx context.Context, d *schema.ResourceData, me
 
 	resp, r, err := api_client.ManagementAPIsSchemasApi.ReadOneAttribute(ctx, envID, schemaID, schemaAttributeID).Execute()
 	if err != nil {
+
+		if r.StatusCode == 404 {
+			log.Printf("[INFO] PingOne Schema Attribtue %s no longer exists", d.Id())
+			d.SetId("")
+			return nil
+		}
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsSchemasApi.ReadOneAttribute``: %v", err),

@@ -119,6 +119,12 @@ func resourceGroupRead(ctx context.Context, d *schema.ResourceData, meta interfa
 
 	resp, r, err := api_client.ManagementAPIsGroupsApi.ReadOneGroup(ctx, envID, groupID).Execute()
 	if err != nil {
+
+		if r.StatusCode == 404 {
+			log.Printf("[INFO] PingOne Group %s no longer exists", d.Id())
+			d.SetId("")
+			return nil
+		}
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsGroupsApi.ReadOneGroup``: %v", err),

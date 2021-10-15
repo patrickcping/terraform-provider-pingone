@@ -95,7 +95,7 @@ resource "pingone_environment" "test" {
   
 }
 
-resource "pingone_role_assignment" "admin_role_assignment" {
+resource "pingone_user_role_assignment" "admin_role_assignment" {
   environment_id = data.pingone_environment.admin_env.id
   user_id = "3944a587-a1aa-4378-9933-e9f9a2ad59fe" // My test user
   role_id = data.pingone_role.identity_data_admin.id
@@ -145,7 +145,30 @@ resource "pingone_schema_attribute" "test_attribute" {
   
 }
 
+
 ### Application
+resource "pingone_application_oidc" "worker_app" {
+  environment_id = pingone_environment.test.environment_id
+
+  name = "Test App 2"
+  description = "Test app 2 description"
+  enabled = true
+
+  type = "WORKER"
+  grant_types = ["CLIENT_CREDENTIALS"]
+  token_endpoint_authn_method = "CLIENT_SECRET_BASIC"
+
+}
+
+# resource "pingone_application_role_assignment" "app_role_assignment" {
+#   environment_id = pingone_environment.test.environment_id
+#   application_id = pingone_application_oidc.worker_app.id
+
+#   role_id = data.pingone_role.identity_data_admin.id
+#   scope_id = pingone_environment.test.environment_id
+#   scope_type = "ENVIRONMENT"
+# }
+
 resource "pingone_application_oidc" "oidc_web_app" {
   environment_id = pingone_environment.test.environment_id
 
@@ -174,19 +197,6 @@ data "pingone_application_oidc_secret" "oidc_web_app_secret" {
   application_id = pingone_application_oidc.oidc_web_app.id
 }
 
-resource "pingone_application_oidc" "worker_app" {
-  environment_id = pingone_environment.test.environment_id
-
-  name = "Test App 2"
-  description = "Test app 2 description"
-  enabled = true
-
-  type = "WORKER"
-  grant_types = ["CLIENT_CREDENTIALS"]
-  token_endpoint_authn_method = "CLIENT_SECRET_BASIC"
-
-}
-
 data "pingone_resource" "openid_resource" {
   environment_id = pingone_environment.test.environment_id
 
@@ -209,7 +219,25 @@ data "pingone_resource_scope" "openid_email" {
 
 }
 
-resource "pingone_application_resource_grant" "oidc_web_app" {
+resource "pingone_resource" "test" {
+  environment_id = pingone_environment.test.environment_id
+
+  name = "Test"
+  description = "Test resource"
+  audience = "myaud"
+  
+}
+
+resource "pingone_resource_scope" "test_scope" {
+  environment_id = pingone_environment.test.environment_id
+  resource_id = pingone_resource.test.id
+
+  name = "scope1"
+  description = "Scope 1"
+
+}
+
+resource "pingone_application_resource_grant" "oidc_web_app_oidc_resource" {
   environment_id = pingone_environment.test.environment_id
   application_id = pingone_application_oidc.oidc_web_app.id
 
@@ -220,6 +248,16 @@ resource "pingone_application_resource_grant" "oidc_web_app" {
   ]
 }
 
+resource "pingone_application_resource_grant" "oidc_web_app_test_resource" {
+  environment_id = pingone_environment.test.environment_id
+  application_id = pingone_application_oidc.oidc_web_app.id
+
+  resource_id = pingone_resource.test.id
+  scopes = [
+    pingone_resource_scope.test_scope.id
+  ]
+}
+
 resource "pingone_application_attribute_mapping" "username" {
   environment_id = pingone_environment.test.environment_id
   application_id = pingone_application_oidc.oidc_web_app.id
@@ -227,4 +265,42 @@ resource "pingone_application_attribute_mapping" "username" {
   name = "test"
   value = "$${user.email}"
   required = false
+}
+
+resource "pingone_gateway" "pingfederate" {
+  environment_id = pingone_environment.test.environment_id
+
+  name = "PingFederate Gateway"
+  type = "PING_FEDERATE"
+  description = "It's a PingFed Gateway"
+  enabled = true
+  
+}
+
+resource "pingone_gateway_credential" "pingfederate" {
+  environment_id = pingone_environment.test.environment_id
+  gateway_id = pingone_gateway.pingfederate.id
+
+}
+
+resource "pingone_gateway_credential" "pingfederate1" {
+  environment_id = pingone_environment.test.environment_id
+  gateway_id = pingone_gateway.pingfederate.id
+
+}
+
+resource "pingone_gateway" "pingintelligence" {
+  environment_id = pingone_environment.test.environment_id
+
+  name = "PingIntelligence Gateway"
+  type = "PING_INTELLIGENCE"
+  description = "It's a PingIntelligence Gateway"
+  enabled = true
+  
+}
+
+resource "pingone_gateway_credential" "pingintelligence" {
+  environment_id = pingone_environment.test.environment_id
+  gateway_id = pingone_gateway.pingintelligence.id
+
 }

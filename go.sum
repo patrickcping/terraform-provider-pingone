@@ -262,6 +262,12 @@ github.com/patrickcping/pingone-go v0.0.0-20211014144838-7b8ff46331fa h1:pUtDQgX
 github.com/patrickcping/pingone-go v0.0.0-20211014144838-7b8ff46331fa/go.mod h1:EJT4PzgsP6+iwZ4HPrF8hjgmdEzZtjq3NaR9VC81htM=
 github.com/patrickcping/pingone-go v0.0.0-20211014155937-1290147bf119 h1:zJBPvj7rOWFeU++hHMIe5vgqEwdbVOpjSdkqDScI+iA=
 github.com/patrickcping/pingone-go v0.0.0-20211014155937-1290147bf119/go.mod h1:EJT4PzgsP6+iwZ4HPrF8hjgmdEzZtjq3NaR9VC81htM=
+github.com/patrickcping/pingone-go v0.0.0-20211015113951-26805eccc156 h1:p53y10JxEf6si7BBIwt9v1xZXo/kqvOXIYo+hr6yU08=
+github.com/patrickcping/pingone-go v0.0.0-20211015113951-26805eccc156/go.mod h1:EJT4PzgsP6+iwZ4HPrF8hjgmdEzZtjq3NaR9VC81htM=
+github.com/patrickcping/pingone-go v0.0.0-20211015123551-7da046545d67 h1:KPy6pURPJdZ5q8deE4uf2nH6lPncfYII0M6fRrxoizk=
+github.com/patrickcping/pingone-go v0.0.0-20211015123551-7da046545d67/go.mod h1:EJT4PzgsP6+iwZ4HPrF8hjgmdEzZtjq3NaR9VC81htM=
+github.com/patrickcping/pingone-go v0.0.0-20211015164909-1214fbc0ee7c h1:TwKJRDUGkWVDKUGGvWDrDHXlI2Ouxf+VvRYS/QPZrXw=
+github.com/patrickcping/pingone-go v0.0.0-20211015164909-1214fbc0ee7c/go.mod h1:EJT4PzgsP6+iwZ4HPrF8hjgmdEzZtjq3NaR9VC81htM=
 github.com/pierrec/lz4 v2.0.5+incompatible/go.mod h1:pdkljMzZIN41W+lC3N2tnIh5sFi+IEE17M5jbnwPHcY=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=

@@ -12,13 +12,13 @@ import (
 	"github.com/patrickcping/pingone-go"
 )
 
-func resourceUserRoleAssignment() *schema.Resource {
+func resourceApplicationRoleAssignment() *schema.Resource {
 	return &schema.Resource{
-		CreateContext: resourceUserRoleAssignmentCreate,
-		ReadContext:   resourceUserRoleAssignmentRead,
-		DeleteContext: resourceUserRoleAssignmentDelete,
+		CreateContext: resourceApplicationRoleAssignmentCreate,
+		ReadContext:   resourceApplicationRoleAssignmentRead,
+		DeleteContext: resourceApplicationRoleAssignmentDelete,
 		Importer: &schema.ResourceImporter{
-			StateContext: resourceUserRoleAssignmentImport,
+			StateContext: resourceApplicationRoleAssignmentImport,
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -27,7 +27,7 @@ func resourceUserRoleAssignment() *schema.Resource {
 				Required: true,
 				ForceNew: true,
 			},
-			"user_id": {
+			"application_id": {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
@@ -56,7 +56,7 @@ func resourceUserRoleAssignment() *schema.Resource {
 	}
 }
 
-func resourceUserRoleAssignmentCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceApplicationRoleAssignmentCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*p1Client)
 	api_client := p1Client.APIClient
 	ctx = context.WithValue(ctx, pingone.ContextServerVariables, map[string]string{
@@ -65,24 +65,24 @@ func resourceUserRoleAssignmentCreate(ctx context.Context, d *schema.ResourceDat
 	var diags diag.Diagnostics
 
 	envID := d.Get("environment_id").(string)
-	userID := d.Get("user_id").(string)
+	appID := d.Get("application_id").(string)
 	roleID := d.Get("role_id").(string)
 	scopeID := d.Get("scope_id").(string)
 	scopeType := d.Get("scope_type").(string)
 
-	log.Printf("[INFO] Creating PingOne User Role Assignment: user %s, env %s", userID, envID)
+	log.Printf("[INFO] Creating PingOne User Role Assignment: app %s, env %s", appID, envID)
 
-	userRoleAssignmentRole := *pingone.NewRoleAssignmentRole(roleID)
+	appRoleAssignmentRole := *pingone.NewRoleAssignmentRole(roleID)
 
-	userRoleAssignmentScope := *pingone.NewRoleAssignmentScope(scopeID, scopeType)
+	appRoleAssignmentScope := *pingone.NewRoleAssignmentScope(scopeID, scopeType)
 
-	userRoleAssignment := *pingone.NewRoleAssignment(userRoleAssignmentRole, userRoleAssignmentScope) // UserRoleAssignment |  (optional)
+	appRoleAssignment := *pingone.NewRoleAssignment(appRoleAssignmentRole, appRoleAssignmentScope) // ApplicationRoleAssignment |  (optional)
 
-	resp, r, err := api_client.ManagementAPIsUsersUserRoleAssignmentsApi.CreateUserRoleAssignment(ctx, envID, userID).RoleAssignment(userRoleAssignment).Execute()
+	resp, r, err := api_client.ManagementAPIsApplicationsApplicationRoleAssignmentsApi.CreateApplicationRoleAssignment(ctx, envID, appID).RoleAssignment(appRoleAssignment).Execute()
 	if (err != nil) && (r.StatusCode != 201) {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsUsersUserRoleAssignmentsApi.CreateUserRoleAssignment``: %v", err),
+			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsApplicationsApplicationRoleAssignmentsApi.CreateApplicationRoleAssignment``: %v", err),
 			Detail:   fmt.Sprintf("Full HTTP response: %v\n", r.Body),
 		})
 
@@ -91,10 +91,10 @@ func resourceUserRoleAssignmentCreate(ctx context.Context, d *schema.ResourceDat
 
 	d.SetId(resp.GetId())
 
-	return resourceUserRoleAssignmentRead(ctx, d, meta)
+	return resourceApplicationRoleAssignmentRead(ctx, d, meta)
 }
 
-func resourceUserRoleAssignmentRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceApplicationRoleAssignmentRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*p1Client)
 	api_client := p1Client.APIClient
 	ctx = context.WithValue(ctx, pingone.ContextServerVariables, map[string]string{
@@ -104,13 +104,19 @@ func resourceUserRoleAssignmentRead(ctx context.Context, d *schema.ResourceData,
 
 	roleAssignmentID := d.Id()
 	envID := d.Get("environment_id").(string)
-	userID := d.Get("user_id").(string)
+	appID := d.Get("application_id").(string)
 
-	resp, r, err := api_client.ManagementAPIsUsersUserRoleAssignmentsApi.ReadOneRoleAssignment(ctx, envID, userID, roleAssignmentID).Execute()
+	resp, r, err := api_client.ManagementAPIsApplicationsApplicationRoleAssignmentsApi.ReadOneApplicationRoleAssignment(ctx, envID, appID, roleAssignmentID).Execute()
 	if err != nil {
+
+		if r.StatusCode == 404 {
+			log.Printf("[INFO] PingOne Role Assignment %s no longer exists", d.Id())
+			d.SetId("")
+			return nil
+		}
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsUsersUserRoleAssignmentsApi.ReadOneRoleAssignment``: %v", err),
+			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsApplicationsApplicationRoleAssignmentsApi.ReadOneRoleAssignment``: %v", err),
 			Detail:   fmt.Sprintf("Full HTTP response: %v\n", r.Body),
 		})
 
@@ -125,7 +131,7 @@ func resourceUserRoleAssignmentRead(ctx context.Context, d *schema.ResourceData,
 	return diags
 }
 
-func resourceUserRoleAssignmentDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func resourceApplicationRoleAssignmentDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	p1Client := meta.(*p1Client)
 	api_client := p1Client.APIClient
 	ctx = context.WithValue(ctx, pingone.ContextServerVariables, map[string]string{
@@ -135,7 +141,7 @@ func resourceUserRoleAssignmentDelete(ctx context.Context, d *schema.ResourceDat
 
 	roleAssignmentID := d.Id()
 	envID := d.Get("environment_id").(string)
-	userID := d.Get("user_id").(string)
+	appID := d.Get("application_id").(string)
 	readOnly := d.Get("read_only").(bool)
 
 	if readOnly {
@@ -147,11 +153,11 @@ func resourceUserRoleAssignmentDelete(ctx context.Context, d *schema.ResourceDat
 		return diags
 	}
 
-	_, err := api_client.ManagementAPIsUsersUserRoleAssignmentsApi.DeleteUserRoleAssignment(ctx, envID, userID, roleAssignmentID).Execute()
+	_, err := api_client.ManagementAPIsApplicationsApplicationRoleAssignmentsApi.DeleteApplicationRoleAssignment(ctx, envID, appID, roleAssignmentID).Execute()
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsUsersUserRoleAssignmentsApi.DeleteUserRoleAssignment``: %v", err),
+			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsApplicationsApplicationRoleAssignmentsApi.DeleteApplicationRoleAssignment``: %v", err),
 		})
 
 		return diags
@@ -160,20 +166,20 @@ func resourceUserRoleAssignmentDelete(ctx context.Context, d *schema.ResourceDat
 	return nil
 }
 
-func resourceUserRoleAssignmentImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+func resourceApplicationRoleAssignmentImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 	attributes := strings.SplitN(d.Id(), "/", 3)
 
 	if len(attributes) != 3 {
-		return nil, fmt.Errorf("invalid id (\"%s\") specified, should be in format \"envID/userID/roleAssignmentID\"", d.Id())
+		return nil, fmt.Errorf("invalid id (\"%s\") specified, should be in format \"envID/appID/roleAssignmentID\"", d.Id())
 	}
 
-	envID, userID, roleAssignmentID := attributes[0], attributes[1], attributes[2]
+	envID, appID, roleAssignmentID := attributes[0], attributes[1], attributes[2]
 
 	d.Set("environment_id", envID)
-	d.Set("user_id", userID)
+	d.Set("application_id", appID)
 	d.SetId(roleAssignmentID)
 
-	resourceUserRoleAssignmentRead(ctx, d, meta)
+	resourceApplicationRoleAssignmentRead(ctx, d, meta)
 
 	return []*schema.ResourceData{d}, nil
 }

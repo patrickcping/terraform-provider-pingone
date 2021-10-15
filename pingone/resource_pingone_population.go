@@ -85,6 +85,12 @@ func resourcePopulationRead(ctx context.Context, d *schema.ResourceData, meta in
 
 	resp, r, err := api_client.ManagementAPIsPopulationsApi.ReadOnePopulation(ctx, envID, popID).Execute()
 	if err != nil {
+
+		if r.StatusCode == 404 {
+			log.Printf("[INFO] PingOne Population %s no longer exists", d.Id())
+			d.SetId("")
+			return nil
+		}
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsPopulationsApi.ReadOnePopulation``: %v", err),
