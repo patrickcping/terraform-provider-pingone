@@ -129,7 +129,7 @@ func resourceEnvironmentCreate(ctx context.Context, d *schema.ResourceData, meta
 	environment.SetDescription(envDescription)
 
 	resp, r, err := api_client.ManagementAPIsEnvironmentsApi.CreateEnvironmentActiveLicense(ctx).Environment(environment).Execute()
-	if (err != nil) && (r.StatusCode != 201) {
+	if (err != nil) || (r.StatusCode != 201) {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsEnvironmentsApi.CreateEnvironmentActiveLicense``: %v", err),
@@ -167,7 +167,7 @@ func resourceEnvironmentCreate(ctx context.Context, d *schema.ResourceData, meta
 	population.SetDescription(popDescription)
 
 	popResp, popR, popErr := api_client.ManagementAPIsPopulationsApi.CreatePopulation(ctx, resp.GetId()).Population(population).Execute()
-	if (err != nil) && (r.StatusCode != 201) {
+	if (err != nil) || (r.StatusCode != 201) {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsPopulationsApi.CreatePopulation``: %v", popErr),

@@ -160,14 +160,14 @@ resource "pingone_application_oidc" "worker_app" {
 
 }
 
-# resource "pingone_application_role_assignment" "app_role_assignment" {
-#   environment_id = pingone_environment.test.environment_id
-#   application_id = pingone_application_oidc.worker_app.id
+resource "pingone_application_role_assignment" "app_role_assignment" {
+  environment_id = pingone_environment.test.environment_id
+  application_id = pingone_application_oidc.worker_app.id
 
-#   role_id = data.pingone_role.identity_data_admin.id
-#   scope_id = pingone_environment.test.environment_id
-#   scope_type = "ENVIRONMENT"
-# }
+  role_id = data.pingone_role.environment_admin.id
+  scope_id = pingone_environment.test.environment_id
+  scope_type = "ENVIRONMENT"
+}
 
 resource "pingone_application_oidc" "oidc_web_app" {
   environment_id = pingone_environment.test.environment_id
@@ -302,5 +302,17 @@ resource "pingone_gateway" "pingintelligence" {
 resource "pingone_gateway_credential" "pingintelligence" {
   environment_id = pingone_environment.test.environment_id
   gateway_id = pingone_gateway.pingintelligence.id
+
+}
+
+# Environment seeded apps
+data "pingone_application_system" "self_service" {
+  environment_id = pingone_environment.test.environment_id
+  type = "PING_ONE_SELF_SERVICE"
+}
+
+data "pingone_application_resource_grants" "self_service" {
+  environment_id = pingone_environment.test.environment_id
+  application_id = data.pingone_application_system.self_service.id
 
 }

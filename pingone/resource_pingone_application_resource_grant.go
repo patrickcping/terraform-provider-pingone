@@ -73,7 +73,7 @@ func resourceApplicationResourceGrantCreate(ctx context.Context, d *schema.Resou
 	log.Printf("[INFO] Creating PingOne Application resource grant")
 
 	resp, r, err := api_client.ManagementAPIsApplicationsApplicationResourceGrantsApi.CreateApplicationGrant(ctx, envID, appID).ApplicationResourceGrant(applicationResourceGrant).Execute()
-	if (err != nil) && (r.StatusCode != 201) {
+	if (err != nil) || (r.StatusCode != 201) {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsApplicationsApplicationResourceGrantsApi.CreateGrant``: %v", err),

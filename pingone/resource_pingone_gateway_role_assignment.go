@@ -79,7 +79,7 @@ func resourceGatewayRoleAssignmentCreate(ctx context.Context, d *schema.Resource
 	gatewayRoleAssignment := *pingone.NewRoleAssignment(gatewayRoleAssignmentRole, gatewayRoleAssignmentScope) // GatewayRoleAssignment |  (optional)
 
 	resp, r, err := api_client.ManagementAPIsGatewayManagementGatewayRoleAssignmentsApi.CreateGatewayRoleAssignment(ctx, envID, gatewayID).RoleAssignment(gatewayRoleAssignment).Execute()
-	if (err != nil) && (r.StatusCode != 201) {
+	if (err != nil) || (r.StatusCode != 201) {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsGatewayManagementGatewayRoleAssignmentsApi.CreateGatewayRoleAssignment``: %v", err),

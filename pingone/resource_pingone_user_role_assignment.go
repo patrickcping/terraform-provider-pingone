@@ -79,7 +79,7 @@ func resourceUserRoleAssignmentCreate(ctx context.Context, d *schema.ResourceDat
 	userRoleAssignment := *pingone.NewRoleAssignment(userRoleAssignmentRole, userRoleAssignmentScope) // UserRoleAssignment |  (optional)
 
 	resp, r, err := api_client.ManagementAPIsUsersUserRoleAssignmentsApi.CreateUserRoleAssignment(ctx, envID, userID).RoleAssignment(userRoleAssignment).Execute()
-	if (err != nil) && (r.StatusCode != 201) {
+	if (err != nil) || (r.StatusCode != 201) {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsUsersUserRoleAssignmentsApi.CreateUserRoleAssignment``: %v", err),

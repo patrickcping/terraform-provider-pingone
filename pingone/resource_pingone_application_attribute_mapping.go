@@ -77,7 +77,7 @@ func resourceApplicationAttributeMappingCreate(ctx context.Context, d *schema.Re
 	log.Printf("[INFO] Creating PingOne Application Attribute: name %s", applicationAttributeMapping.GetName())
 
 	resp, r, err := api_client.ManagementAPIsApplicationsApplicationAttributeMappingApi.CreateApplicationAttributeMapping(ctx, envID, appID).ApplicationAttributeMapping(applicationAttributeMapping).Execute()
-	if (err != nil) && (r.StatusCode != 201) {
+	if (err != nil) || (r.StatusCode != 201) {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsApplicationsApplicationAttributeMappingApi.CreateApplicationAttributeMapping``: %v", err),

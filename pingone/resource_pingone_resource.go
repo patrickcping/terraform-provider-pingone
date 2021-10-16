@@ -76,7 +76,7 @@ func resourceResourceCreate(ctx context.Context, d *schema.ResourceData, meta in
 	log.Printf("[INFO] Creating PingOne Resource: name %s", resource.GetName())
 
 	resp, r, err := api_client.ManagementAPIsResourcesResourcesApi.CreateResource(ctx, envID).Resource(resource).Execute()
-	if (err != nil) && (r.StatusCode != 201) {
+	if (err != nil) || (r.StatusCode != 201) {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsResourcesResourcesApi.CreateResource``: %v", err),

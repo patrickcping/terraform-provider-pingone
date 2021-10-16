@@ -75,7 +75,7 @@ func resourceGatewayCreate(ctx context.Context, d *schema.ResourceData, meta int
 	log.Printf("[INFO] Creating PingOne Gateway: name %s", gateway.GetName())
 
 	resp, r, err := api_client.ManagementAPIsGatewayManagementGatewaysApi.CreateGateway(ctx, envID).OneOfGatewayGatewayLDAP(gateway).Execute()
-	if (err != nil) && (r.StatusCode != 201) {
+	if (err != nil) || (r.StatusCode != 201) {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsGatewayManagementGatewaysApi.CreateGateway``: %v", err),

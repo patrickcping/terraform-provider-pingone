@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -272,7 +273,7 @@ func resourceApplicationOIDCCreate(ctx context.Context, d *schema.ResourceData, 
 	log.Printf("[INFO] Creating PingOne Application: name %s", application.GetName())
 
 	resp, r, err := api_client.ManagementAPIsApplicationsApplicationsApi.CreateApplication(ctx, envID).OneOfApplicationSAMLApplicationOIDC(application).Execute()
-	if (err != nil) && (r.StatusCode != 201) {
+	if (err != nil) || (r.StatusCode != 201) {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsApplicationsApplicationsApi.CreateApplication``: %v", err),
@@ -284,36 +285,61 @@ func resourceApplicationOIDCCreate(ctx context.Context, d *schema.ResourceData, 
 
 	appID := resp.(map[string]interface{})["id"].(string)
 
-	// Clear down all the pre-seeded application roles, these should be managed by TF
-	respAR, r, err := api_client.ManagementAPIsApplicationsApplicationRoleAssignmentsApi.ReadApplicationRoleAssignments(ctx, envID, appID).Execute()
-	if err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Warning,
-			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsApplicationsApplicationRoleAssignmentsApi.ReadApplicationRoleAssignments``: %v", err),
-			Detail:   fmt.Sprintf("Full HTTP response: %v\n", r.Body),
-		})
-	}
+	// The platform pre-assigns roles on creation.  We should clear these down as these should be explicitly managed by TF
 
-	if _, ok := respAR.Embedded.GetRoleAssignmentsOk(); ok {
+	// We'll be racing the platform here, so we'll loop for 10 seconds or until we find no more created
 
-		for _, roleAssignment := range respAR.Embedded.GetRoleAssignments() {
+	var i int
+	for start := time.Now(); time.Since(start) < (10 * time.Second); {
 
-			if !roleAssignment.GetReadOnly() {
+		log.Printf("[DEBUG] Role assignments iteration: %v", i)
 
-				r, err := api_client.ManagementAPIsApplicationsApplicationRoleAssignmentsApi.DeleteApplicationRoleAssignment(ctx, envID, appID, roleAssignment.GetId()).Execute()
-				if err != nil {
-					log.Printf("Error %v", err)
-					diags = append(diags, diag.Diagnostic{
-						Severity: diag.Warning,
-						Summary:  fmt.Sprintf("Error when calling `ManagementAPIsApplicationsApplicationRoleAssignmentsApi.DeleteApplicationRoleAssignment``: %v", err),
-					})
+		respAR, r, err := api_client.ManagementAPIsApplicationsApplicationRoleAssignmentsApi.ReadApplicationRoleAssignments(ctx, envID, appID).Execute()
+		if err != nil {
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Warning,
+				Summary:  fmt.Sprintf("Error when calling `ManagementAPIsApplicationsApplicationRoleAssignmentsApi.ReadApplicationRoleAssignments``: %v", err),
+				Detail:   fmt.Sprintf("Full HTTP response: %v\n", r.Body),
+			})
+		}
+
+		if _, ok := respAR.Embedded.GetRoleAssignmentsOk(); ok {
+
+			roleAssignments := respAR.Embedded.GetRoleAssignments()
+
+			log.Printf("[DEBUG] Role assignments to process: %v", len(roleAssignments))
+
+			// Break the loop as it appears no more role assignments got created by the platform
+			if len(roleAssignments) == 0 {
+				break
+			}
+
+			for _, roleAssignment := range roleAssignments {
+
+				if !roleAssignment.GetReadOnly() {
+
+					_, err := api_client.ManagementAPIsApplicationsApplicationRoleAssignmentsApi.DeleteApplicationRoleAssignment(ctx, envID, appID, roleAssignment.GetId()).Execute()
+					if err != nil {
+						log.Printf("Error %v", err)
+						diags = append(diags, diag.Diagnostic{
+							Severity: diag.Warning,
+							Summary:  fmt.Sprintf("Error when calling `ManagementAPIsApplicationsApplicationRoleAssignmentsApi.DeleteApplicationRoleAssignment``: %v", err),
+						})
+					}
+
 				}
-				log.Printf("R: %v\n", r)
 
 			}
 
 		}
 
+		i++
+
+		// We'll also use a max iteration of 11 loops as backstop to avoid endless looping
+		if i > 10 {
+			log.Println("[WARN] Loop to remove role assignments hit it's backstop value")
+			break
+		}
 	}
 
 	d.SetId(appID)
@@ -398,20 +424,9 @@ func resourceApplicationOIDCRead(ctx context.Context, d *schema.ResourceData, me
 	d.Set("bundle_id", application.GetBundleId())
 	d.Set("package_name", application.GetPackageName())
 
-	log.Println("Before")
-	b, _ = json.Marshal(application.GetAccessControl())
-	log.Println(string(b))
-
 	if v, ok := application.GetAccessControlOk(); ok {
-		log.Println("Before 2")
-		b, _ = json.Marshal(v)
-		log.Println(string(b))
 
 		accessControlFlattened, err := flattenApplicationAccessControl(v)
-
-		log.Println("After")
-		b, _ = json.Marshal(accessControlFlattened)
-		log.Println(string(b))
 
 		if err != nil {
 			diags = append(diags, diag.Diagnostic{

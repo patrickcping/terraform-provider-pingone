@@ -57,7 +57,7 @@ func resourcePopulationCreate(ctx context.Context, d *schema.ResourceData, meta 
 	population.SetDescription(popDescription)
 
 	resp, r, err := api_client.ManagementAPIsPopulationsApi.CreatePopulation(ctx, envID).Population(population).Execute()
-	if (err != nil) && (r.StatusCode != 201) {
+	if (err != nil) || (r.StatusCode != 201) {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsPopulationsApi.CreatePopulation``: %v", err),

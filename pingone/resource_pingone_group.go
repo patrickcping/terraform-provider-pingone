@@ -91,7 +91,7 @@ func resourceGroupCreate(ctx context.Context, d *schema.ResourceData, meta inter
 
 	log.Printf("Error when calling `ManagementAPIsGroupsApi.CreateGroup``: %v", group)
 	resp, r, err := api_client.ManagementAPIsGroupsApi.CreateGroup(ctx, envID).Group(group).Execute()
-	if (err != nil) && (r.StatusCode != 201) {
+	if (err != nil) || (r.StatusCode != 201) {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsGroupsApi.CreateGroup``: %v", err),

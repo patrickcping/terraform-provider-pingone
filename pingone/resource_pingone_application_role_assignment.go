@@ -79,7 +79,7 @@ func resourceApplicationRoleAssignmentCreate(ctx context.Context, d *schema.Reso
 	appRoleAssignment := *pingone.NewRoleAssignment(appRoleAssignmentRole, appRoleAssignmentScope) // ApplicationRoleAssignment |  (optional)
 
 	resp, r, err := api_client.ManagementAPIsApplicationsApplicationRoleAssignmentsApi.CreateApplicationRoleAssignment(ctx, envID, appID).RoleAssignment(appRoleAssignment).Execute()
-	if (err != nil) && (r.StatusCode != 201) {
+	if (err != nil) || (r.StatusCode != 201) {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsApplicationsApplicationRoleAssignmentsApi.CreateApplicationRoleAssignment``: %v", err),

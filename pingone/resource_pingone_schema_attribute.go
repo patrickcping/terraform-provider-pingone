@@ -115,7 +115,7 @@ func resourceSchemaAttributeCreate(ctx context.Context, d *schema.ResourceData, 
 	schemaAttribute.SetRequired(required)
 
 	resp, r, err := api_client.ManagementAPIsSchemasApi.CreateAttribute(ctx, envID, schemaID).SchemaAttribute(schemaAttribute).Execute()
-	if (err != nil) && (r.StatusCode != 201) {
+	if (err != nil) || (r.StatusCode != 201) {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsSchemasApi.CreateAttribute``: %v", err),

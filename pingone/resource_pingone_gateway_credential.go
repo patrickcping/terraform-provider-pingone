@@ -66,7 +66,7 @@ func resourceGatewayCredentialCreate(ctx context.Context, d *schema.ResourceData
 	log.Printf("[INFO] Creating PingOne Gateway Credential: gateway %s", gatewayID)
 
 	resp, r, err := api_client.ManagementAPIsGatewayManagementGatewayCredentialsApi.CreateGatewayCredential(ctx, envID, gatewayID).Execute()
-	if (err != nil) && (r.StatusCode != 201) {
+	if (err != nil) || (r.StatusCode != 201) {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  fmt.Sprintf("Error when calling `ManagementAPIsGatewayManagementGatewayCredentialsApi.CreateGatewayCredential``: %v", err),
